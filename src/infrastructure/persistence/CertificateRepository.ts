@@ -9,7 +9,7 @@ export interface ICertificateRepository {
 }
 
 export class InMemoryCertificateRepository implements ICertificateRepository {
-  private certificates = new Map<string, Certificate>();
+  private readonly certificates = new Map<string, Certificate>();
 
   async save(certificate: Certificate): Promise<Certificate> {
     this.certificates.set(certificate.id, certificate);

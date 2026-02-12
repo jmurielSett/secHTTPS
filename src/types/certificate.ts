@@ -1,5 +1,9 @@
-export type CertificateStatus = 'ACTIVE' | 'DELETED';
-export type ExpirationStatus = 'NORMAL' | 'WARNING' | 'EXPIRED';
+import { ExpirationStatus } from './shared';
+
+export enum CertificateStatus {
+  ACTIVE = 'ACTIVE',
+  DELETED = 'DELETED'
+}
 
 export interface Certificate {
   id: string;

@@ -1,4 +1,4 @@
-import { ExpirationStatus } from '../../types/certificate';
+import { ExpirationStatus } from '../../types/shared';
 
 /**
  * Servicio de dominio para calcular el estado de expiración de certificados
@@ -19,11 +19,11 @@ export class CertificateExpirationService {
     const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
     
     if (diffDays < 0) {
-      return 'EXPIRED';
+      return ExpirationStatus.EXPIRED;
     } else if (diffDays <= 7) {
-      return 'WARNING';
+      return ExpirationStatus.WARNING;
     } else {
-      return 'NORMAL';
+      return ExpirationStatus.NORMAL;
     }
   }
 }
