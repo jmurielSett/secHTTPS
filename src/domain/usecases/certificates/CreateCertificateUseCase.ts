@@ -1,10 +1,11 @@
-import { randomUUID } from 'crypto';
+import { randomUUID } from 'node:crypto';
 import { ICertificateRepository } from '../../../infrastructure/persistence/CertificateRepository';
-import { Certificate, CreateCertificateDTO } from '../../../types/certificate';
+import { Certificate, CertificateStatus, CreateCertificateDTO } from '../../../types/certificate';
+import { ErrorCode, ValidationError } from '../../../types/errors';
 import { CertificateExpirationService } from '../../services/CertificateExpirationService';
 
 export class CreateCertificateUseCase {
-  constructor(private certificateRepository: ICertificateRepository) {}
+  constructor(private readonly certificateRepository: ICertificateRepository) {}
 
   async execute(data: CreateCertificateDTO): Promise<Certificate> {
     // Validar campos requeridos
@@ -27,7 +28,7 @@ export class CreateCertificateUseCase {
       client: data.client,
       configPath: data.configPath,
       responsibleEmails: data.responsibleEmails,
-      status: 'ACTIVE',
+      status: CertificateStatus.ACTIVE,
       expirationStatus: CertificateExpirationService.calculateExpirationStatus(data.expirationDate),
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString()
@@ -41,13 +42,19 @@ export class CreateCertificateUseCase {
     const { fileName, startDate, expirationDate, server, filePath, client, configPath, responsibleEmails } = data;
     
     if (!fileName || !startDate || !expirationDate || !server || !filePath || !client || !configPath || !responsibleEmails) {
-      throw new Error('Faltan campos requeridos');
+      throw new ValidationError(
+        ErrorCode.REQUIRED_FIELDS,
+        'Faltan campos obligatorios'
+      );
     }
   }
 
   private validateResponsibleEmails(emails: string[]): void {
     if (!Array.isArray(emails) || emails.length === 0) {
-      throw new Error('responsibleEmails debe contener al menos un email');
+      throw new ValidationError(
+        ErrorCode.INVALID_EMAIL_LIST,
+        'La lista de mails de responsables debe contener al menos un email válido'
+      );
     }
   }
 
@@ -56,7 +63,10 @@ export class CreateCertificateUseCase {
     const expiration = new Date(expirationDate);
     
     if (expiration <= start) {
-      throw new Error('expirationDate debe ser posterior a startDate');
+      throw new ValidationError(
+        ErrorCode.INVALID_DATE_RANGE,
+        'La fecha de expiración debe ser posterior a la fecha de inicio'
+      );
     }
   }
 }

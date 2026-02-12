@@ -1,14 +1,18 @@
 import { Application } from 'express';
 import request from 'supertest';
-import { beforeAll, describe, expect, it } from 'vitest';
-import { createApp } from '../app';
+import { beforeEach, describe, expect, it } from 'vitest';
+import { createApp } from '../../src/app';
+import { CertificateStatus } from '../../src/types/certificate';
+import { ErrorCode } from '../../src/types/errors';
+import { ExpirationStatus } from '../../src/types/shared';
 
 describe('Certificates API - /api/certif', () => {
   let app: Application;
   let createdCertificateIds: string[] = [];
 
-  beforeAll(() => {
+  beforeEach(() => {
     app = createApp();
+    createdCertificateIds = [];
   });
 
   // Helper para crear certificados de prueba
@@ -55,7 +59,7 @@ describe('Certificates API - /api/certif', () => {
 
       expect(response.body).toHaveProperty('id');
       expect(response.body.fileName).toBe(newCertificate.fileName);
-      expect(response.body.status).toBe('ACTIVE');
+      expect(response.body.status).toBe(CertificateStatus.ACTIVE);
       expect(response.body.expirationStatus).toMatch(/NORMAL|WARNING|EXPIRED/);
       expect(response.body).toHaveProperty('createdAt');
       expect(response.body).toHaveProperty('updatedAt');
@@ -72,7 +76,8 @@ describe('Certificates API - /api/certif', () => {
         .send(incompleteCertificate)
         .expect(400);
 
-      expect(response.body).toHaveProperty('error');
+      expect(response.body).toHaveProperty('code', ErrorCode.REQUIRED_FIELDS);
+      expect(response.body).toHaveProperty('message');
     });
 
     it('debería retornar 400 si expirationDate no es posterior a startDate', async () => {
@@ -92,7 +97,8 @@ describe('Certificates API - /api/certif', () => {
         .send(invalidCertificate)
         .expect(400);
 
-      expect(response.body).toHaveProperty('error');
+      expect(response.body).toHaveProperty('code', ErrorCode.INVALID_DATE_RANGE);
+      expect(response.body).toHaveProperty('message');
     });
 
     it('debería retornar 400 si responsibleEmails está vacío', async () => {
@@ -112,7 +118,8 @@ describe('Certificates API - /api/certif', () => {
         .send(invalidCertificate)
         .expect(400);
 
-      expect(response.body).toHaveProperty('error');
+      expect(response.body).toHaveProperty('code', ErrorCode.INVALID_EMAIL_LIST);
+      expect(response.body).toHaveProperty('message');
     });
   });
 
@@ -187,14 +194,14 @@ describe('Certificates API - /api/certif', () => {
 
     it('debería filtrar por status ACTIVE y excluir DELETED', async () => {
       // Crear certificados ACTIVE
-      const cert1 = await createTestCertificate({ fileName: 'active1.crt' });
-      const cert2 = await createTestCertificate({ fileName: 'active2.crt' });
+      await createTestCertificate({ fileName: 'active1.crt' });
+      await createTestCertificate({ fileName: 'active2.crt' });
       const cert3 = await createTestCertificate({ fileName: 'todelete.crt' });
 
       // Eliminar uno (cambiar a DELETED)
       await request(app)
         .patch(`/api/certif/${cert3.id}/status`)
-        .send({ status: 'DELETED' });
+        .send({ status: CertificateStatus.DELETED });
 
       const response = await request(app)
         .get('/api/certif?status=ACTIVE')
@@ -202,7 +209,7 @@ describe('Certificates API - /api/certif', () => {
 
       expect(response.body.total).toBeGreaterThanOrEqual(2);
       response.body.certificates.forEach((cert: any) => {
-        expect(cert.status).toBe('ACTIVE');
+        expect(cert.status).toBe(CertificateStatus.ACTIVE);
       });
     });
 
@@ -213,11 +220,11 @@ describe('Certificates API - /api/certif', () => {
 
       await request(app)
         .patch(`/api/certif/${cert1.id}/status`)
-        .send({ status: 'DELETED' });
+        .send({ status: CertificateStatus.DELETED });
       
       await request(app)
         .patch(`/api/certif/${cert2.id}/status`)
-        .send({ status: 'DELETED' });
+        .send({ status: CertificateStatus.DELETED });
 
       const response = await request(app)
         .get('/api/certif?status=DELETED')
@@ -225,7 +232,7 @@ describe('Certificates API - /api/certif', () => {
 
       expect(response.body.total).toBeGreaterThanOrEqual(2);
       response.body.certificates.forEach((cert: any) => {
-        expect(cert.status).toBe('DELETED');
+        expect(cert.status).toBe(CertificateStatus.DELETED);
       });
     });
 
@@ -254,7 +261,7 @@ describe('Certificates API - /api/certif', () => {
 
       expect(response.body.total).toBeGreaterThanOrEqual(1);
       response.body.certificates.forEach((cert: any) => {
-        expect(cert.expirationStatus).toBe('WARNING');
+        expect(cert.expirationStatus).toBe(ExpirationStatus.WARNING);
       });
     });
 
@@ -276,7 +283,7 @@ describe('Certificates API - /api/certif', () => {
 
       expect(response.body.total).toBeGreaterThanOrEqual(1);
       response.body.certificates.forEach((cert: any) => {
-        expect(cert.expirationStatus).toBe('EXPIRED');
+        expect(cert.expirationStatus).toBe(ExpirationStatus.EXPIRED);
       });
     });
 
@@ -311,8 +318,8 @@ describe('Certificates API - /api/certif', () => {
       response.body.certificates.forEach((cert: any) => {
         expect(cert.client).toBe('Empresa XYZ');
         expect(cert.server).toBe('web-prod-01');
-        expect(cert.status).toBe('ACTIVE');
-        expect(cert.expirationStatus).toBe('NORMAL');
+        expect(cert.status).toBe(CertificateStatus.ACTIVE);
+        expect(cert.expirationStatus).toBe(ExpirationStatus.NORMAL);
       });
     });
 
@@ -328,13 +335,14 @@ describe('Certificates API - /api/certif', () => {
 
   describe('GET /api/certif/:id', () => {
     it('debería obtener un certificado por ID y retornar 200', async () => {
-      const validId = '123e4567-e89b-12d3-a456-426614174000';
+      // Crear un certificado primero
+      const cert = await createTestCertificate({ fileName: 'cert-by-id.crt' });
       
       const response = await request(app)
-        .get(`/api/certif/${validId}`)
+        .get(`/api/certif/${cert.id}`)
         .expect(200);
 
-      expect(response.body).toHaveProperty('id', validId);
+      expect(response.body).toHaveProperty('id', cert.id);
       expect(response.body).toHaveProperty('fileName');
       expect(response.body).toHaveProperty('startDate');
       expect(response.body).toHaveProperty('expirationDate');
@@ -356,8 +364,9 @@ describe('Certificates API - /api/certif', () => {
         .get(`/api/certif/${nonExistentId}`)
         .expect(404);
 
-      expect(response.body).toHaveProperty('error');
-      expect(response.body.error).toContain('no encontrado');
+      expect(response.body).toHaveProperty('code', ErrorCode.CERTIFICATE_NOT_FOUND);
+      expect(response.body).toHaveProperty('message');
+      expect(response.body.message).toContain('no encontrado');
     });
 
     it('debería retornar 400 si el ID no es un UUID válido', async () => {
@@ -367,13 +376,16 @@ describe('Certificates API - /api/certif', () => {
         .get(`/api/certif/${invalidId}`)
         .expect(400);
 
-      expect(response.body).toHaveProperty('error');
+      expect(response.body).toHaveProperty('code', ErrorCode.INVALID_UUID);
+      expect(response.body).toHaveProperty('message');
     });
   });
 
   describe('PUT /api/certif/:id', () => {
     it('debería actualizar un certificado existente y retornar 200', async () => {
-      const validId = '123e4567-e89b-12d3-a456-426614174000';
+      // Crear un certificado primero
+      const cert = await createTestCertificate({ fileName: 'original.crt' });
+      
       const updateData = {
         fileName: 'nuevo-nombre.crt',
         expirationDate: '2027-06-01',
@@ -381,11 +393,11 @@ describe('Certificates API - /api/certif', () => {
       };
 
       const response = await request(app)
-        .put(`/api/certif/${validId}`)
+        .put(`/api/certif/${cert.id}`)
         .send(updateData)
         .expect(200);
 
-      expect(response.body.id).toBe(validId);
+      expect(response.body.id).toBe(cert.id);
       expect(response.body.fileName).toBe(updateData.fileName);
       expect(response.body).toHaveProperty('updatedAt');
     });
@@ -401,61 +413,72 @@ describe('Certificates API - /api/certif', () => {
         .send(updateData)
         .expect(404);
 
-      expect(response.body).toHaveProperty('error');
+      expect(response.body).toHaveProperty('code', ErrorCode.CERTIFICATE_NOT_FOUND);
+      expect(response.body).toHaveProperty('message');
     });
 
     it('debería retornar 400 si se intenta modificar un certificado eliminado', async () => {
-      const deletedCertId = '111e1111-e11b-11d1-a111-111111111111';
+      // Crear y eliminar un certificado
+      const cert = await createTestCertificate({ fileName: 'to-delete.crt' });
+      await request(app)
+        .patch(`/api/certif/${cert.id}/status`)
+        .send({ status: CertificateStatus.DELETED });
+      
       const updateData = {
         fileName: 'nuevo-nombre.crt'
       };
 
       const response = await request(app)
-        .put(`/api/certif/${deletedCertId}`)
+        .put(`/api/certif/${cert.id}`)
         .send(updateData)
         .expect(400);
 
-      expect(response.body).toHaveProperty('error');
-      expect(response.body.error).toContain('eliminado');
+      expect(response.body).toHaveProperty('code', ErrorCode.CERTIFICATE_ALREADY_DELETED);
+      expect(response.body).toHaveProperty('message');
+      expect(response.body.message).toContain('eliminado');
     });
 
     it('debería retornar 400 si la nueva expirationDate es anterior a startDate', async () => {
-      const validId = '123e4567-e89b-12d3-a456-426614174000';
+      // Crear un certificado primero
+      const cert = await createTestCertificate({ fileName: 'test-dates.crt' });
+      
       const invalidUpdate = {
         startDate: '2027-01-01',
         expirationDate: '2026-01-01'
       };
 
       const response = await request(app)
-        .put(`/api/certif/${validId}`)
+        .put(`/api/certif/${cert.id}`)
         .send(invalidUpdate)
         .expect(400);
 
-      expect(response.body).toHaveProperty('error');
+      expect(response.body).toHaveProperty('code', ErrorCode.INVALID_DATE_RANGE);
+      expect(response.body).toHaveProperty('message');
     });
   });
 
   describe('PATCH /api/certif/:id/status', () => {
     it('debería cambiar el estado a DELETED y retornar 200', async () => {
-      const validId = '123e4567-e89b-12d3-a456-426614174000';
+      // Crear un certificado primero
+      const cert = await createTestCertificate({ fileName: 'to-delete.crt' });
       const statusUpdate = {
-        status: 'DELETED'
+        status: CertificateStatus.DELETED
       };
 
       const response = await request(app)
-        .patch(`/api/certif/${validId}/status`)
+        .patch(`/api/certif/${cert.id}/status`)
         .send(statusUpdate)
         .expect(200);
 
-      expect(response.body.id).toBe(validId);
-      expect(response.body.status).toBe('DELETED');
+      expect(response.body.id).toBe(cert.id);
+      expect(response.body.status).toBe(CertificateStatus.DELETED);
       expect(response.body).toHaveProperty('updatedAt');
     });
 
     it('debería retornar 404 si el certificado no existe', async () => {
       const nonExistentId = '999e9999-e99b-99d9-a999-999999999999';
       const statusUpdate = {
-        status: 'DELETED'
+        status: CertificateStatus.DELETED
       };
 
       const response = await request(app)
@@ -463,45 +486,58 @@ describe('Certificates API - /api/certif', () => {
         .send(statusUpdate)
         .expect(404);
 
-      expect(response.body).toHaveProperty('error');
+      expect(response.body).toHaveProperty('code', ErrorCode.CERTIFICATE_NOT_FOUND);
+      expect(response.body).toHaveProperty('message');
     });
 
     it('debería retornar 400 si el certificado ya está eliminado', async () => {
-      const deletedCertId = '111e1111-e11b-11d1-a111-111111111111';
+      // Crear y eliminar un certificado
+      const cert = await createTestCertificate({ fileName: 'already-deleted.crt' });
+      
+      // Eliminarlo primero
+      await request(app)
+        .patch(`/api/certif/${cert.id}/status`)
+        .send({ status: CertificateStatus.DELETED });
+      
+      // Intentar eliminarlo de nuevo
       const statusUpdate = {
-        status: 'DELETED'
+        status: CertificateStatus.DELETED
       };
 
       const response = await request(app)
-        .patch(`/api/certif/${deletedCertId}/status`)
+        .patch(`/api/certif/${cert.id}/status`)
         .send(statusUpdate)
         .expect(400);
 
-      expect(response.body).toHaveProperty('error');
-      expect(response.body.error).toContain('eliminado');
+      expect(response.body).toHaveProperty('code', ErrorCode.CERTIFICATE_ALREADY_DELETED);
+      expect(response.body).toHaveProperty('message');
+      expect(response.body.message).toContain('eliminado');
     });
 
     it('debería retornar 400 si el status no es DELETED', async () => {
-      const validId = '123e4567-e89b-12d3-a456-426614174000';
+      // Crear un certificado para este test
+      const cert = await createTestCertificate({ fileName: 'invalid-status-test.crt' });
       const invalidStatus = {
-        status: 'ACTIVE'
+        status: CertificateStatus.ACTIVE
       };
 
       const response = await request(app)
-        .patch(`/api/certif/${validId}/status`)
+        .patch(`/api/certif/${cert.id}/status`)
         .send(invalidStatus)
         .expect(400);
 
-      expect(response.body).toHaveProperty('error');
+      expect(response.body).toHaveProperty('code', ErrorCode.INVALID_STATUS);
+      expect(response.body).toHaveProperty('message');
     });
   });
 
   describe('GET /api/certif/:id/notifications', () => {
     it('debería obtener las notificaciones de un certificado y retornar 200', async () => {
-      const validId = '123e4567-e89b-12d3-a456-426614174000';
+      // Crear un certificado primero
+      const cert = await createTestCertificate({ fileName: 'cert-with-notifications.crt' });
 
       const response = await request(app)
-        .get(`/api/certif/${validId}/notifications`)
+        .get(`/api/certif/${cert.id}/notifications`)
         .expect(200);
 
       expect(response.body).toHaveProperty('total');
@@ -517,14 +553,16 @@ describe('Certificates API - /api/certif', () => {
         .get(`/api/certif/${nonExistentId}/notifications`)
         .expect(404);
 
-      expect(response.body).toHaveProperty('error');
+      expect(response.body).toHaveProperty('code', ErrorCode.CERTIFICATE_NOT_FOUND);
+      expect(response.body).toHaveProperty('message');
     });
 
     it('debería retornar un array vacío si el certificado no tiene notificaciones', async () => {
-      const validIdWithoutNotifications = '222e2222-e22b-22d2-a222-222222222222';
+      // Crear un certificado sin notificaciones
+      const cert = await createTestCertificate({ fileName: 'cert-without-notifications.crt' });
 
       const response = await request(app)
-        .get(`/api/certif/${validIdWithoutNotifications}/notifications`)
+        .get(`/api/certif/${cert.id}/notifications`)
         .expect(200);
 
       expect(response.body.total).toBe(0);
