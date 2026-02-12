@@ -1,0 +1,710 @@
+openapi: 3.0.3
+info:
+  title: API de Gestión de Certificados SSL/TLS
+  description: |
+    API REST para gestionar el ciclo de vida de certificados SSL/TLS instalados en servidores web, 
+    permitiendo su creación, consulta, modificación de estado y monitorización de su expiración.
+    
+    Incluye sistema de notificaciones automáticas por email para certificados próximos a expirar o expirados.
+  version: 1.0.0
+  contact:
+    name: API Support
+    email: support@example.com
+
+servers:
+  - url: http://localhost:3000
+    description: Servidor de desarrollo
+  - url: https://api.ejemplo.com
+    description: Servidor de producción
+
+tags:
+  - name: certificados
+    description: Operaciones sobre certificados SSL/TLS
+  - name: notificaciones
+    description: Gestión y consulta de notificaciones por email
+
+paths:
+  /api/certif:
+    get:
+      tags:
+        - certificados
+      summary: Listar y filtrar certificados
+      description: Obtiene una lista de certificados con filtros opcionales
+      operationId: listarCertificados
+      parameters:
+        - name: client
+          in: query
+          description: Filtrar por nombre del cliente
+          required: false
+          schema:
+            type: string
+          example: Empresa XYZ
+        - name: server
+          in: query
+          description: Filtrar por nombre del servidor
+          required: false
+          schema:
+            type: string
+          example: web-prod-01
+        - name: fileName
+          in: query
+          description: Filtrar por nombre del fichero del certificado
+          required: false
+          schema:
+            type: string
+          example: example.com.crt
+        - name: status
+          in: query
+          description: Filtrar por estado del certificado
+          required: false
+          schema:
+            type: string
+            enum: [ACTIVE, DELETED]
+        - name: expirationStatus
+          in: query
+          description: Filtrar por estado de expiración
+          required: false
+          schema:
+            type: string
+            enum: [NORMAL, WARNING, EXPIRED]
+      responses:
+        '200':
+          description: Lista de certificados obtenida exitosamente
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CertificateList'
+        '500':
+          description: Error interno del servidor
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    
+    post:
+      tags:
+        - certificados
+      summary: Crear un nuevo certificado
+      description: Crea un nuevo certificado con estado ACTIVE por defecto
+      operationId: crearCertificado
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CertificateInput'
+      responses:
+        '201':
+          description: Certificado creado exitosamente
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Certificate'
+        '400':
+          description: Datos inválidos
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Error interno del servidor
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /api/certif/{id}:
+    get:
+      tags:
+        - certificados
+      summary: Obtener un certificado por ID
+      description: Obtiene los detalles completos de un certificado específico
+      operationId: obtenerCertificado
+      parameters:
+        - name: id
+          in: path
+          description: ID único del certificado (UUID)
+          required: true
+          schema:
+            type: string
+            format: uuid
+          example: 123e4567-e89b-12d3-a456-426614174000
+      responses:
+        '200':
+          description: Certificado encontrado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Certificate'
+        '404':
+          description: Certificado no encontrado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Error interno del servidor
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    
+    put:
+      tags:
+        - certificados
+      summary: Actualizar datos del certificado
+      description: Actualiza los datos de un certificado. No se puede modificar si está eliminado.
+      operationId: actualizarCertificado
+      parameters:
+        - name: id
+          in: path
+          description: ID único del certificado (UUID)
+          required: true
+          schema:
+            type: string
+            format: uuid
+          example: 123e4567-e89b-12d3-a456-426614174000
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CertificateUpdate'
+      responses:
+        '200':
+          description: Certificado actualizado exitosamente
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Certificate'
+        '400':
+          description: Datos inválidos o certificado eliminado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error: No se puede modificar un certificado eliminado
+        '404':
+          description: Certificado no encontrado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Error interno del servidor
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /api/certif/{id}/status:
+    patch:
+      tags:
+        - certificados
+      summary: Modificar estado del certificado
+      description: Cambia el estado del certificado a DELETED. No se puede modificar si ya está eliminado.
+      operationId: modificarEstadoCertificado
+      parameters:
+        - name: id
+          in: path
+          description: ID único del certificado (UUID)
+          required: true
+          schema:
+            type: string
+            format: uuid
+          example: 123e4567-e89b-12d3-a456-426614174000
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - status
+              properties:
+                status:
+                  type: string
+                  enum: [DELETED]
+                  description: Nuevo estado del certificado
+              example:
+                status: DELETED
+      responses:
+        '200':
+          description: Estado del certificado actualizado exitosamente
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Certificate'
+        '400':
+          description: Estado inválido o certificado ya eliminado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error: No se puede modificar un certificado eliminado
+        '404':
+          description: Certificado no encontrado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Error interno del servidor
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /api/certif/{id}/notifications:
+    get:
+      tags:
+        - certificados
+      summary: Obtener notificaciones de un certificado
+      description: Obtiene el historial de notificaciones enviadas para un certificado específico
+      operationId: obtenerNotificacionesCertificado
+      parameters:
+        - name: id
+          in: path
+          description: ID único del certificado (UUID)
+          required: true
+          schema:
+            type: string
+            format: uuid
+          example: 123e4567-e89b-12d3-a456-426614174000
+      responses:
+        '200':
+          description: Lista de notificaciones del certificado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotificationList'
+        '404':
+          description: Certificado no encontrado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Error interno del servidor
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /api/notif:
+    get:
+      tags:
+        - notificaciones
+      summary: Listar y filtrar notificaciones enviadas
+      description: Obtiene una lista de todas las notificaciones enviadas con filtros opcionales
+      operationId: listarNotificaciones
+      parameters:
+        - name: certificateId
+          in: query
+          description: Filtrar por ID del certificado
+          required: false
+          schema:
+            type: string
+            format: uuid
+          example: 123e4567-e89b-12d3-a456-426614174000
+        - name: startDate
+          in: query
+          description: Filtrar notificaciones desde esta fecha (ISO 8601)
+          required: false
+          schema:
+            type: string
+            format: date
+          example: 2026-02-01
+        - name: endDate
+          in: query
+          description: Filtrar notificaciones hasta esta fecha (ISO 8601)
+          required: false
+          schema:
+            type: string
+            format: date
+          example: 2026-02-08
+        - name: expirationStatus
+          in: query
+          description: Filtrar por estado de expiración en el momento del envío
+          required: false
+          schema:
+            type: string
+            enum: [WARNING, EXPIRED]
+        - name: result
+          in: query
+          description: Filtrar por resultado del envío
+          required: false
+          schema:
+            type: string
+            enum: [SENT, ERROR]
+      responses:
+        '200':
+          description: Lista de notificaciones obtenida exitosamente
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotificationList'
+        '500':
+          description: Error interno del servidor
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    
+    post:
+      tags:
+        - notificaciones
+      summary: Registrar una notificación enviada
+      description: |
+        Registra una notificación de email enviada a los responsables de un certificado.
+        Este endpoint es usado principalmente por el sistema automático de notificaciones.
+      operationId: registrarNotificacion
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/NotificationInput'
+      responses:
+        '201':
+          description: Notificación registrada exitosamente
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Notification'
+        '400':
+          description: Datos inválidos o certificado no encontrado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Error interno del servidor
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+components:
+  schemas:
+    Certificate:
+      type: object
+      required:
+        - id
+        - fileName
+        - startDate
+        - expirationDate
+        - server
+        - filePath
+        - client
+        - configPath
+        - responsibleEmails
+        - status
+        - expirationStatus
+        - createdAt
+        - updatedAt
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: Identificador único del certificado
+          example: 123e4567-e89b-12d3-a456-426614174000
+        fileName:
+          type: string
+          description: Nombre del archivo del certificado
+          example: example.com.crt
+        startDate:
+          type: string
+          format: date
+          description: Fecha de inicio de validez del certificado (ISO 8601)
+          example: 2026-01-01
+        expirationDate:
+          type: string
+          format: date
+          description: Fecha de caducidad del certificado (ISO 8601)
+          example: 2027-01-01
+        server:
+          type: string
+          description: Nombre del servidor donde está instalado
+          example: web-prod-01
+        filePath:
+          type: string
+          description: Ruta completa del archivo del certificado en el servidor
+          example: /etc/ssl/certs/example.com.crt
+        client:
+          type: string
+          description: Nombre de la empresa propietaria del certificado
+          example: Empresa XYZ
+        configPath:
+          type: string
+          description: Ruta del archivo de configuración donde se usa el certificado
+          example: /etc/nginx/sites-available/example.com
+        responsibleEmails:
+          type: array
+          description: Lista de emails de los responsables del certificado
+          items:
+            type: string
+            format: email
+          minItems: 1
+          example:
+            - admin@empresa.com
+            - devops@empresa.com
+        status:
+          type: string
+          enum: [ACTIVE, DELETED]
+          description: Estado del certificado
+          example: ACTIVE
+        expirationStatus:
+          type: string
+          enum: [NORMAL, WARNING, EXPIRED]
+          description: Estado de expiración del certificado (calculado automáticamente)
+          example: NORMAL
+        createdAt:
+          type: string
+          format: date-time
+          description: Fecha y hora de creación del registro (ISO 8601)
+          example: 2026-02-08T10:00:00Z
+        updatedAt:
+          type: string
+          format: date-time
+          description: Fecha y hora de última modificación (ISO 8601)
+          example: 2026-02-08T10:00:00Z
+
+    CertificateInput:
+      type: object
+      required:
+        - fileName
+        - startDate
+        - expirationDate
+        - server
+        - filePath
+        - client
+        - configPath
+        - responsibleEmails
+      properties:
+        fileName:
+          type: string
+          description: Nombre del archivo del certificado
+          example: example.com.crt
+        startDate:
+          type: string
+          format: date
+          description: Fecha de inicio de validez del certificado
+          example: 2026-01-01
+        expirationDate:
+          type: string
+          format: date
+          description: Fecha de caducidad del certificado (debe ser posterior a startDate)
+          example: 2027-01-01
+        server:
+          type: string
+          description: Nombre del servidor donde está instalado
+          example: web-prod-01
+        filePath:
+          type: string
+          description: Ruta completa del archivo del certificado en el servidor
+          example: /etc/ssl/certs/example.com.crt
+        client:
+          type: string
+          description: Nombre de la empresa propietaria del certificado
+          example: Empresa XYZ
+        configPath:
+          type: string
+          description: Ruta del archivo de configuración donde se usa el certificado
+          example: /etc/nginx/sites-available/example.com
+        responsibleEmails:
+          type: array
+          description: Lista de emails de los responsables del certificado
+          items:
+            type: string
+            format: email
+          minItems: 1
+          example:
+            - admin@empresa.com
+            - devops@empresa.com
+
+    CertificateUpdate:
+      type: object
+      properties:
+        fileName:
+          type: string
+          description: Nombre del archivo del certificado
+          example: nuevo-nombre.crt
+        startDate:
+          type: string
+          format: date
+          description: Fecha de inicio de validez del certificado
+          example: 2026-01-01
+        expirationDate:
+          type: string
+          format: date
+          description: Fecha de caducidad del certificado
+          example: 2027-06-01
+        server:
+          type: string
+          description: Nombre del servidor donde está instalado
+          example: web-prod-02
+        filePath:
+          type: string
+          description: Ruta completa del archivo del certificado en el servidor
+          example: /etc/ssl/certs/nuevo.crt
+        client:
+          type: string
+          description: Nombre de la empresa propietaria del certificado
+          example: Nueva Empresa
+        configPath:
+          type: string
+          description: Ruta del archivo de configuración donde se usa el certificado
+          example: /etc/nginx/sites-available/nuevo.com
+        responsibleEmails:
+          type: array
+          description: Lista de emails de los responsables del certificado
+          items:
+            type: string
+            format: email
+          minItems: 1
+          example:
+            - nuevo@empresa.com
+
+    CertificateList:
+      type: object
+      required:
+        - total
+        - certificates
+      properties:
+        total:
+          type: integer
+          description: Número total de certificados que cumplen los criterios de filtrado
+          example: 10
+        certificates:
+          type: array
+          description: Lista de certificados
+          items:
+            $ref: '#/components/schemas/Certificate'
+
+    Error:
+      type: object
+      required:
+        - error
+      properties:
+        error:
+          type: string
+          description: Mensaje de error descriptivo
+          example: Certificado no encontrado
+
+    Notification:
+      type: object
+      required:
+        - id
+        - certificateId
+        - sentAt
+        - recipientEmails
+        - subject
+        - expirationStatusAtTime
+        - result
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: Identificador único de la notificación
+          example: abc12345-e89b-12d3-a456-426614174000
+        certificateId:
+          type: string
+          format: uuid
+          description: ID del certificado al que pertenece esta notificación
+          example: 123e4567-e89b-12d3-a456-426614174000
+        sentAt:
+          type: string
+          format: date-time
+          description: Fecha y hora en que se envió la notificación (ISO 8601)
+          example: 2026-02-08T08:30:00Z
+        recipientEmails:
+          type: array
+          description: Lista de emails a los que se envió la notificación
+          items:
+            type: string
+            format: email
+          minItems: 1
+          example:
+            - admin@empresa.com
+            - devops@empresa.com
+        subject:
+          type: string
+          description: Asunto del email enviado
+          example: Certificado example.com.crt expirará en 5 días
+        expirationStatusAtTime:
+          type: string
+          enum: [WARNING, EXPIRED]
+          description: Estado de expiración del certificado en el momento del envío
+          example: WARNING
+        result:
+          type: string
+          enum: [SENT, ERROR]
+          description: Resultado del intento de envío del email
+          example: SENT
+        errorMessage:
+          type: string
+          nullable: true
+          description: Mensaje de error si el envío falló (solo si result = ERROR)
+          example: null
+
+    NotificationInput:
+      type: object
+      required:
+        - certificateId
+        - recipientEmails
+        - subject
+        - expirationStatusAtTime
+        - result
+      properties:
+        certificateId:
+          type: string
+          format: uuid
+          description: ID del certificado para el que se envía la notificación
+          example: 123e4567-e89b-12d3-a456-426614174000
+        recipientEmails:
+          type: array
+          description: Lista de emails a los que se envió la notificación
+          items:
+            type: string
+            format: email
+          minItems: 1
+          example:
+            - admin@empresa.com
+            - devops@empresa.com
+        subject:
+          type: string
+          description: Asunto del email enviado
+          example: Certificado example.com.crt expirará en 3 días
+        expirationStatusAtTime:
+          type: string
+          enum: [WARNING, EXPIRED]
+          description: Estado de expiración del certificado en el momento del envío
+          example: WARNING
+        result:
+          type: string
+          enum: [SENT, ERROR]
+          description: Resultado del intento de envío del email
+          example: SENT
+        errorMessage:
+          type: string
+          description: Mensaje de error si el envío falló (requerido solo si result = ERROR)
+          example: SMTP connection timeout
+
+    NotificationList:
+      type: object
+      required:
+        - total
+        - notifications
+      properties:
+        total:
+          type: integer
+          description: Número total de notificaciones que cumplen los criterios de filtrado
+          example: 25
+        notifications:
+          type: array
+          description: Lista de notificaciones
+          items:
+            $ref: '#/components/schemas/Notification'
