@@ -350,25 +350,54 @@ if (usePostgres) {
 
 #### 5.1. Configuración de tests
 
-**vitest.config.ts** - Los tests usan InMemory por defecto (rápido, sin dependencias externas).
+**Los tests SIEMPRE usan InMemory** por defecto, independientemente del valor de `USE_POSTGRES` en `.env`.
 
-Para tests con PostgreSQL real (opcional):
-- Configurar `USE_POSTGRES=true` antes de ejecutar tests
-- Usar base de datos de test separada para evitar contaminar datos de desarrollo
+**Cómo funcionan los tests actualmente:**
+```typescript
+// tests/integration/certificates.test.ts
+beforeEach(async () => {
+  app = await createApp();  // Sin parámetro = false por defecto
+});
+```
+
+Esto garantiza:
+✅ Tests rápidos (sin conexión a BD real)  
+✅ Sin dependencias externas (no necesita PostgreSQL corriendo)  
+✅ Aislamiento automático (cada test limpia su memoria)  
+✅ Ejecución en paralelo sin conflictos
+
+**Para tests con PostgreSQL real (opcional, NO recomendado):**
+
+Tendrías que modificar los tests para leer la variable:
+```typescript
+beforeEach(async () => {
+  const usePostgres = process.env.USE_POSTGRES === 'true';
+  app = await createApp(usePostgres);
+});
+```
+
+Y configurar:
+- Base de datos de test separada
+- Limpieza entre tests (DELETE o ROLLBACK)
+- beforeAll/afterAll para setup/teardown
+
+> **Recomendación:** Mantén los tests en InMemory. Son más rápidos, simples y confiables.
 
 #### 5.2. Setup/Teardown
 
-Si se implementan tests con PostgreSQL (opcional):
-- `beforeAll()`: Conectar a BD, ejecutar migraciones, limpiar tablas
-- `afterEach()`: Limpiar datos entre tests (DELETE o transacciones con ROLLBACK)
+No necesario para InMemory (limpieza automática).
+
+Si implementaras tests con PostgreSQL:
+- `beforeAll()`: Conectar a BD, ejecutar migraciones
+- `afterEach()`: Limpiar datos entre tests
 - `afterAll()`: Cerrar pool de conexiones
 
-#### 5.3. Migrar tests existentes
+#### 5.3. Tests existentes
 
-Los 50 tests actuales deben seguir funcionando:
-- Cambiar `createApp()` para que use PostgreSQL en tests
-- Asegurar aislamiento entre tests (transacciones o limpieza)
-- Mismas aserciones, diferente persistencia
+Los 50 tests actuales funcionan sin cambios:
+- Usan InMemory por defecto
+- No necesitan configuración adicional
+- Pasan en ~1 segundo
 
 ### Fase 6: Scripts y Comandos
 
@@ -403,10 +432,10 @@ Añadir scripts:
 - [ ] Añadir manejo de cierre graceful en `src/server.ts`
 
 ### Testing
-- [ ] Tests usan InMemory por defecto (USE_POSTGRES=false)
-- [ ] Crear helpers de setup/teardown si se usan tests con PostgreSQL (opcional)
+- [ ] Tests SIEMPRE usan InMemory (no leen USE_POSTGRES)
 - [ ] Ejecutar tests: `npm test -- --run`
 - [ ] Verificar que los 50 tests siguen pasando
+- [ ] (Opcional) Si implementas tests con PostgreSQL, crear helpers de setup/teardown
 
 ### Documentación
 - [ ] Actualizar README.md con instrucciones Docker

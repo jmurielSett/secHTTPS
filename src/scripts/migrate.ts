@@ -1,5 +1,9 @@
+import dotenv from 'dotenv';
 import { closeDatabaseConnection, connectDatabase } from '../infrastructure/database/connection';
 import { DatabaseMigrator } from '../infrastructure/database/migrator';
+
+// Load environment variables from .env
+dotenv.config();
 
 async function runMigrations() {
   try {
