@@ -1,6 +1,6 @@
-import { INotificationRepository } from '../../../infrastructure/persistence/NotificationRepository';
 import { Notification, NotificationResult } from '../../../types/notification';
 import { ExpirationStatus } from '../../../types/shared';
+import { INotificationRepository } from '../../repositories/INotificationRepository';
 
 export interface GetNotificationsFilters {
   certificateId?: string;

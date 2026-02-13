@@ -1,8 +1,8 @@
 import { randomUUID } from 'node:crypto';
+import { INotificationRepository } from '../../domain/repositories/INotificationRepository';
 import { GetNotificationsFilters } from '../../domain/usecases/notifications/GetNotificationsUseCase';
 import { Notification } from '../../types/notification';
 import { getPool } from '../database/connection';
-import { INotificationRepository } from './NotificationRepository';
 
 export class PostgresNotificationRepository implements INotificationRepository {
   

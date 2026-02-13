@@ -1,13 +1,6 @@
+import { ICertificateRepository } from '../../domain/repositories/ICertificateRepository';
 import { GetCertificatesFilters } from '../../domain/usecases/certificates/GetCertificatesUseCase';
 import { Certificate } from '../../types/certificate';
-
-export interface ICertificateRepository {
-  save(certificate: Certificate): Promise<Certificate>;
-  findById(id: string): Promise<Certificate | null>;
-  findAll(filters?: GetCertificatesFilters): Promise<Certificate[]>;
-  update(certificate: Certificate): Promise<Certificate>;
-  delete(id: string): Promise<void>;
-}
 
 export class InMemoryCertificateRepository implements ICertificateRepository {
   private readonly certificates = new Map<string, Certificate>();

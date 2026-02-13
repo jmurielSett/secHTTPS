@@ -1,6 +1,6 @@
-import { ICertificateRepository } from '../../../infrastructure/persistence/CertificateRepository';
 import { Certificate } from '../../../types/certificate';
 import { ErrorCode, NotFoundError, ValidationError } from '../../../types/errors';
+import { ICertificateRepository } from '../../repositories/ICertificateRepository';
 
 export class GetCertificateByIdUseCase {
   constructor(private readonly certificateRepository: ICertificateRepository) {}

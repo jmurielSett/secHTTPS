@@ -85,6 +85,10 @@ src/
 ├── server.ts                 # Punto de entrada: startServer() async
 │
 ├── domain/                   # Capa de Dominio (Lógica de Negocio)
+│   ├── repositories/        # Interfaces de repositorios (puertos - Clean Architecture)
+│   │   ├── ICertificateRepository.ts    # Interface para persistencia de certificados
+│   │   └── INotificationRepository.ts   # Interface para persistencia de notificaciones
+│   │
 │   ├── services/            # Interfaces de servicios (puertos)
 │   │   ├── CertificateExpirationService.ts  # Cálculo de estados
 │   │   └── IEmailService.ts                 # Interface para envío de emails
@@ -110,13 +114,11 @@ src/
 │   ├── scheduling/          # Programación de tareas
 │   │   └── NotificationSchedulerJob.ts  # Cron para notificaciones
 │   │
-│   ├── persistence/         # Repositorios (acceso a datos)
-│   │   ├── CertificateRepository.ts          # Interfaz + Implementaciones
-│   │   ├── InMemoryCertificateRepository.ts
-│   │   ├── PostgresCertificateRepository.ts
-│   │   ├── NotificationRepository.ts         # Interfaz + Implementaciones
-│   │   ├── InMemoryNotificationRepository.ts
-│   │   └── PostgresNotificationRepository.ts
+│   ├── persistence/         # Repositorios (acceso a datos - Implementaciones)
+│   │   ├── CertificateRepository.ts          # Implementación InMemory
+│   │   ├── PostgresCertificateRepository.ts  # Implementación PostgreSQL
+│   │   ├── NotificationRepository.ts         # Implementación InMemory
+│   │   └── PostgresNotificationRepository.ts # Implementación PostgreSQL
 │   │
 │   ├── database/            # Configuración de base de datos
 │   │   ├── connection.ts    # Pool de conexiones
@@ -316,6 +318,40 @@ HTTP Response
 3. **Separación de Concerns**: HTTP, lógica de negocio y datos están separados
 4. **Escalabilidad**: Fácil agregar nuevos casos de uso o cambiar persistencia
 5. **Reutilización**: `createApp()` sirve para tests, serverless, multiple servers, etc.
+
+### ⚠️ Clean Architecture - Dependency Rule
+
+**Regla de Oro**: Las dependencias siempre deben apuntar hacia adentro (hacia el dominio).
+
+```
+Infrastructure → Domain  ✅ (correcto)
+Domain → Infrastructure  ❌ (NUNCA)
+```
+
+**Implementación en este proyecto**:
+
+- ✅ **Interfaces en `domain/repositories/`**: Los contratos (ICertificateRepository, INotificationRepository) están en la capa de dominio
+- ✅ **Implementaciones en `infrastructure/persistence/`**: Las implementaciones concretas (PostgreSQL, InMemory) están en infraestructura
+- ✅ **UseCases importan desde domain**: Todos los casos de uso importan las interfaces desde `../../repositories/ICertificateRepository`
+- ✅ **Implementaciones importan desde domain**: Los repositorios de infraestructura importan las interfaces desde `../../domain/repositories/`
+
+**❌ Anti-patrón (corregido en refactoring del 2026-02-14)**:
+```typescript
+// INCORRECTO - Domain dependiendo de Infrastructure
+import { ICertificateRepository } from '../../../infrastructure/persistence/CertificateRepository';
+```
+
+**✅ Patrón correcto**:
+```typescript
+// CORRECTO - Domain dependiendo de Domain
+import { ICertificateRepository } from '../../repositories/ICertificateRepository';
+```
+
+Este patrón garantiza que:
+- El dominio no conoce detalles de implementación (PostgreSQL, InMemory, etc.)
+- Puedes cambiar la implementación sin modificar la lógica de negocio
+- Los tests pueden usar mocks fácilmente
+- Se cumple el principio de Inversión de Dependencias (DIP)
 
 ### Estructura de Carpetas (Anterior - Legacy)
 

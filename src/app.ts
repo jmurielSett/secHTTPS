@@ -1,8 +1,10 @@
 import express, { Application } from 'express';
+import { ICertificateRepository } from './domain/repositories/ICertificateRepository';
+import { INotificationRepository } from './domain/repositories/INotificationRepository';
 import { connectDatabase } from './infrastructure/database/connection';
 import { requestLogger } from './infrastructure/middleware/requestLogger';
-import { ICertificateRepository, InMemoryCertificateRepository } from './infrastructure/persistence/CertificateRepository';
-import { INotificationRepository, InMemoryNotificationRepository } from './infrastructure/persistence/NotificationRepository';
+import { InMemoryCertificateRepository } from './infrastructure/persistence/CertificateRepository';
+import { InMemoryNotificationRepository } from './infrastructure/persistence/NotificationRepository';
 import { PostgresCertificateRepository } from './infrastructure/persistence/PostgresCertificateRepository';
 import { PostgresNotificationRepository } from './infrastructure/persistence/PostgresNotificationRepository';
 import { createCertificateRouter } from './infrastructure/transport/routes/certificateRoutes';

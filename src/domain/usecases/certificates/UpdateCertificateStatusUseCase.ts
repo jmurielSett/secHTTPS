@@ -1,6 +1,6 @@
-import { ICertificateRepository } from '../../../infrastructure/persistence/CertificateRepository';
 import { Certificate, CertificateStatus } from '../../../types/certificate';
 import { ErrorCode, NotFoundError, ValidationError } from '../../../types/errors';
+import { ICertificateRepository } from '../../repositories/ICertificateRepository';
 
 export interface UpdateCertificateStatusDTO {
   status: CertificateStatus;

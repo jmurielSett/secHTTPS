@@ -1,8 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { ICertificateRepository } from '../../src/domain/repositories/ICertificateRepository';
+import { INotificationRepository } from '../../src/domain/repositories/INotificationRepository';
 import { IEmailService } from '../../src/domain/services/IEmailService';
 import { SendCertificateNotificationsUseCase } from '../../src/domain/usecases/notifications/SendCertificateNotificationsUseCase';
-import { ICertificateRepository } from '../../src/infrastructure/persistence/CertificateRepository';
-import { INotificationRepository } from '../../src/infrastructure/persistence/NotificationRepository';
 import { Certificate, CertificateStatus } from '../../src/types/certificate';
 import { Notification, NotificationResult } from '../../src/types/notification';
 import { ExpirationStatus } from '../../src/types/shared';

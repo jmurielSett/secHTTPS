@@ -1,12 +1,6 @@
+import { INotificationRepository } from '../../domain/repositories/INotificationRepository';
 import { GetNotificationsFilters } from '../../domain/usecases/notifications/GetNotificationsUseCase';
 import { Notification } from '../../types/notification';
-
-export interface INotificationRepository {
-  save(notification: Notification): Promise<Notification>;
-  findByCertificateId(certificateId: string): Promise<Notification[]>;
-  findLastByCertificateId(certificateId: string): Promise<Notification | null>;
-  findAll(filters?: GetNotificationsFilters): Promise<Notification[]>;
-}
 
 export class InMemoryNotificationRepository implements INotificationRepository {
   private readonly notifications = new Map<string, Notification>();

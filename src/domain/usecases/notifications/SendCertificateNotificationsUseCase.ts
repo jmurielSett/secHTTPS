@@ -1,9 +1,9 @@
 import { randomUUID } from 'node:crypto';
-import { ICertificateRepository } from '../../../infrastructure/persistence/CertificateRepository';
-import { INotificationRepository } from '../../../infrastructure/persistence/NotificationRepository';
 import { Certificate, CertificateStatus } from '../../../types/certificate';
 import { CreateNotificationDTO, NotificationResult, NotificationResultDetail, NotificationSummary } from '../../../types/notification';
 import { ExpirationStatus, NOTIFICATION_FREQUENCY } from '../../../types/shared';
+import { ICertificateRepository } from '../../repositories/ICertificateRepository';
+import { INotificationRepository } from '../../repositories/INotificationRepository';
 import { IEmailService } from '../../services/IEmailService';
 
 /**

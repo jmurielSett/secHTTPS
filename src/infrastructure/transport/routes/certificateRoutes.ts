@@ -1,6 +1,8 @@
 import { Router } from 'express';
 import { CertificateExpirationService } from '../../../domain/services/CertificateExpirationService';
 import { IEmailService } from '../../../domain/services/IEmailService';
+import { ICertificateRepository } from '../../../domain/repositories/ICertificateRepository';
+import { INotificationRepository } from '../../../domain/repositories/INotificationRepository';
 import { CreateCertificateUseCase } from '../../../domain/usecases/certificates/CreateCertificateUseCase';
 import { GetCertificateByIdUseCase } from '../../../domain/usecases/certificates/GetCertificateByIdUseCase';
 import { GetCertificatesUseCase } from '../../../domain/usecases/certificates/GetCertificatesUseCase';
@@ -8,8 +10,6 @@ import { UpdateCertificateStatusUseCase } from '../../../domain/usecases/certifi
 import { UpdateCertificateUseCase } from '../../../domain/usecases/certificates/UpdateCertificateUseCase';
 import { GetCertificateNotificationsUseCase } from '../../../domain/usecases/notifications/GetCertificateNotificationsUseCase';
 import { NodemailerEmailService } from '../../messaging/NodemailerEmailService';
-import { ICertificateRepository } from '../../persistence/CertificateRepository';
-import { INotificationRepository } from '../../persistence/NotificationRepository';
 import { CertificateController } from '../controllers/CertificateController';
 
 export function createCertificateRouter(
