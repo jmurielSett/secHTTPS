@@ -9,8 +9,8 @@ import { ExpirationStatus } from '../../src/types/shared';
 describe('Notifications API', () => {
   let app: Application;
 
-  beforeEach(() => {
-    app = createApp();
+  beforeEach(async () => {
+    app = await createApp();
   });
 
   // Helper para crear un certificado de prueba

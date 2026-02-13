@@ -1,9 +1,10 @@
+import { GetCertificatesFilters } from '../../domain/usecases/certificates/GetCertificatesUseCase';
 import { Certificate } from '../../types/certificate';
 
 export interface ICertificateRepository {
   save(certificate: Certificate): Promise<Certificate>;
   findById(id: string): Promise<Certificate | null>;
-  findAll(): Promise<Certificate[]>;
+  findAll(filters?: GetCertificatesFilters): Promise<Certificate[]>;
   update(certificate: Certificate): Promise<Certificate>;
   delete(id: string): Promise<void>;
 }
@@ -20,8 +21,34 @@ export class InMemoryCertificateRepository implements ICertificateRepository {
     return this.certificates.get(id) || null;
   }
 
-  async findAll(): Promise<Certificate[]> {
-    return Array.from(this.certificates.values());
+  async findAll(filters?: GetCertificatesFilters): Promise<Certificate[]> {
+    let certificates = Array.from(this.certificates.values());
+
+    if (!filters) {
+      return certificates;
+    }
+
+    if (filters.client) {
+      certificates = certificates.filter(cert => cert.client === filters.client);
+    }
+
+    if (filters.server) {
+      certificates = certificates.filter(cert => cert.server === filters.server);
+    }
+
+    if (filters.fileName) {
+      certificates = certificates.filter(cert => cert.fileName === filters.fileName);
+    }
+
+    if (filters.status) {
+      certificates = certificates.filter(cert => cert.status === filters.status);
+    }
+
+    if (filters.expirationStatus) {
+      certificates = certificates.filter(cert => cert.expirationStatus === filters.expirationStatus);
+    }
+
+    return certificates;
   }
 
   async update(certificate: Certificate): Promise<Certificate> {
