@@ -10,8 +10,8 @@ describe('Certificates API - /api/certif', () => {
   let app: Application;
   let createdCertificateIds: string[] = [];
 
-  beforeEach(() => {
-    app = createApp();
+  beforeEach(async () => {
+    app = await createApp();
     createdCertificateIds = [];
   });
 

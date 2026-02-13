@@ -1,3 +1,8 @@
 node_modules/
 dist/
 .env
+.env.development
+
+# no pubicar docker
+Dockerfile
+docker-compose.yml

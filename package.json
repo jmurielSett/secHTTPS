@@ -22,7 +22,13 @@
     "test:watch": "vitest --watch",
     "test:ui": "vitest --ui",
     "test:coverage": "vitest --coverage",
-    "test:run": "vitest --run"
+    "test:run": "vitest --run",
+    "db:migrate": "tsx src/scripts/migrate.ts",
+    "db:reset": "tsx src/scripts/reset-db.ts",
+    "docker:up": "docker-compose up -d",
+    "docker:down": "docker-compose down",
+    "docker:logs": "docker-compose logs -f postgres",
+    "docker:clean": "docker-compose down -v"
   },
   "devDependencies": {
     "@types/express": "^5.0.6",
@@ -36,6 +42,11 @@
     "vitest": "^4.0.18"
   },
   "dependencies": {
-    "express": "^5.2.1"
+    "dotenv": "^17.3.1",
+    "express": "^5.2.1",
+    "pg": "^8.18.0"
+  },
+  "optionalDependencies": {
+    "@types/pg": "^8.16.0"
   }
 }
