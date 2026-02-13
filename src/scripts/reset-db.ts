@@ -1,4 +1,8 @@
+import dotenv from 'dotenv';
 import { closeDatabaseConnection, connectDatabase, getPool } from '../infrastructure/database/connection';
+
+// Load environment variables from .env
+dotenv.config();
 
 async function resetDatabase() {
   try {
