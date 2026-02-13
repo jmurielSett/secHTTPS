@@ -10,7 +10,8 @@ describe('Notifications API', () => {
   let app: Application;
 
   beforeEach(async () => {
-    app = await createApp();
+    const context = await createApp();
+    app = context.app;
   });
 
   // Helper para crear un certificado de prueba

@@ -39,16 +39,19 @@ API REST para gestionar el ciclo de vida de certificados SSL/TLS instalados en s
   "sentAt": "datetime (ISO 8601)",
   "recipientEmails": ["string"],
   "subject": "string",
-  "expirationStatusAtTime": "WARNING | EXPIRED",
+  "expirationStatusAtTime": "NORMAL | WARNING | EXPIRED",
   "result": "SENT | ERROR",
   "errorMessage": "string (opcional)"
 }
 ```
 
 **Descripción**:
-- Registro de cada email enviado por el sistema de notificaciones
-- Se crea automáticamente cuando el sistema detecta certificados próximos a expirar o expirados
-- Permite auditar las notificaciones enviadas
+- Registro de cada email enviado por el sistema (creación, expiración, etc.)
+- Se crea automáticamente en dos casos:
+  1. **Creación de certificado**: `expirationStatusAtTime = NORMAL`
+  2. **Notificaciones de expiración**: `expirationStatusAtTime = WARNING | EXPIRED`
+- Permite auditar todas las notificaciones enviadas
+- El sistema registra tanto envíos exitosos (`SENT`) como fallidos (`ERROR`)
 
 ## 3. Endpoints Propuestos
 
@@ -80,6 +83,18 @@ Response 201:
   "updatedAt": "2026-02-08T10:00:00Z"
 }
 ```
+
+**⚡ Comportamiento Adicional**:
+- Si SMTP está configurado, se envía **automáticamente un email de notificación** a los responsables con:
+  - Asunto: `✅ Nuevo Certificado Registrado: example.com.crt`
+  - Información completa del certificado
+  - Confirmación de monitoreo automático
+- Se registra la notificación en la tabla `notifications` con:
+  - `expirationStatusAtTime = NORMAL` (estado del certificado recién creado)
+  - `result = SENT` o `ERROR` según resultado del envío
+  - `errorMessage` si el envío falló
+- El registro en `notifications` se guarda **siempre** (exitoso o fallido)
+- Si falla el envío del email, la creación del certificado **NO se interrumpe** (solo se registra el error)
 
 ### 3.2. Listar y Filtrar Certificados
 ```
@@ -191,7 +206,10 @@ Response 200:
 - `certificateId`: Filtrar por ID del certificado
 - `startDate`: Filtrar notificaciones desde esta fecha
 - `endDate`: Filtrar notificaciones hasta esta fecha
-- `expirationStatus`: Filtrar por estado de expiración en momento del envío (`WARNING`, `EXPIRED`)
+- `expirationStatus`: Filtrar por estado de expiración en momento del envío (`NORMAL`, `WARNING`, `EXPIRED`)
+  - `NORMAL`: Notificaciones de creación de certificados
+  - `WARNING`: Notificaciones de certificados próximos a expirar
+  - `EXPIRED`: Notificaciones de certificados ya expirados
 - `result`: Filtrar por resultado del envío (`SENT`, `ERROR`)
 
 Todos los parámetros son opcionales y combinables.

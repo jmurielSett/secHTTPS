@@ -10,7 +10,8 @@ describe('Certificates API - /api/certif', () => {
   let app: Application;
 
   beforeEach(async () => {
-    app = await createApp();
+    const context = await createApp();
+    app = context.app;
   });
 
   // Helper para crear certificados de prueba

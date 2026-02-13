@@ -76,6 +76,11 @@ export class PostgresNotificationRepository implements INotificationRepository {
     return this.groupNotifications(result.rows);
   }
 
+  async findLastByCertificateId(certificateId: string): Promise<Notification | null> {
+    const notifications = await this.findByCertificateId(certificateId);
+    return notifications.length > 0 ? notifications[0] : null;
+  }
+
   async findAll(filters?: GetNotificationsFilters): Promise<Notification[]> {
     let query = `
       SELECT 

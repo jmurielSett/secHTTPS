@@ -4,6 +4,7 @@ import { Notification } from '../../types/notification';
 export interface INotificationRepository {
   save(notification: Notification): Promise<Notification>;
   findByCertificateId(certificateId: string): Promise<Notification[]>;
+  findLastByCertificateId(certificateId: string): Promise<Notification | null>;
   findAll(filters?: GetNotificationsFilters): Promise<Notification[]>;
 }
 
@@ -19,6 +20,11 @@ export class InMemoryNotificationRepository implements INotificationRepository {
     return Array.from(this.notifications.values())
       .filter(n => n.certificateId === certificateId)
       .sort((a, b) => new Date(b.sentAt).getTime() - new Date(a.sentAt).getTime());
+  }
+
+  async findLastByCertificateId(certificateId: string): Promise<Notification | null> {
+    const notifications = await this.findByCertificateId(certificateId);
+    return notifications.length > 0 ? notifications[0] : null;
   }
 
   async findAll(filters?: GetNotificationsFilters): Promise<Notification[]> {

@@ -24,3 +24,25 @@ export interface CreateNotificationDTO {
   result: NotificationResult;
   errorMessage?: string;
 }
+
+/**
+ * Resultado del envío de notificaciones para un certificado
+ */
+export interface NotificationResultDetail {
+  certificateId: string;
+  certificateFileName: string;
+  success: boolean;
+  error?: string;
+}
+
+/**
+ * Resumen de la ejecución del proceso de notificaciones
+ */
+export interface NotificationSummary {
+  executedAt: string;
+  totalCertificatesChecked: number;
+  totalCertificatesNeedingNotification: number;
+  totalNotificationsSent: number;
+  totalNotificationsFailed: number;
+  results: NotificationResultDetail[];
+}
