@@ -8,11 +8,9 @@ import { ExpirationStatus } from '../../src/types/shared';
 
 describe('Certificates API - /api/certif', () => {
   let app: Application;
-  let createdCertificateIds: string[] = [];
 
   beforeEach(async () => {
     app = await createApp();
-    createdCertificateIds = [];
   });
 
   // Helper para crear certificados de prueba
@@ -31,10 +29,6 @@ describe('Certificates API - /api/certif', () => {
     const response = await request(app)
       .post('/api/certif')
       .send({ ...defaultCertificate, ...overrides });
-    
-    if (response.status === 201) {
-      createdCertificateIds.push(response.body.id);
-    }
     
     return response.body;
   };

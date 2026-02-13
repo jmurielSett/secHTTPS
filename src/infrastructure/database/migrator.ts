@@ -1,6 +1,6 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
-import { pool } from './connection';
+import { getPool } from './connection';
 
 export class DatabaseMigrator {
   private readonly migrationsPath = path.join(__dirname, 'migrations');
@@ -14,19 +14,19 @@ export class DatabaseMigrator {
       );
     `;
     
-    await pool.query(query);
+    await getPool().query(query);
   }
 
   async getExecutedMigrations(): Promise<string[]> {
-    const result = await pool.query('SELECT filename FROM migrations ORDER BY id');
-    return result.rows.map(row => row.filename);
+    const result = await getPool().query('SELECT filename FROM migrations ORDER BY id');
+    return result.rows.map((row: { filename: string }) => row.filename);
   }
 
   async executeMigration(filename: string): Promise<void> {
     const migrationPath = path.join(this.migrationsPath, filename);
     const sql = await fs.readFile(migrationPath, 'utf-8');
     
-    const client = await pool.connect();
+    const client = await getPool().connect();
     try {
       await client.query('BEGIN');
       await client.query(sql);
