@@ -5,6 +5,7 @@ import { ExpirationStatus, NOTIFICATION_FREQUENCY } from '../../../types/shared'
 import { ICertificateRepository } from '../../repositories/ICertificateRepository';
 import { INotificationRepository } from '../../repositories/INotificationRepository';
 import { IEmailService } from '../../services/IEmailService';
+import { EmailTemplate, ILocalizationService, SupportedLanguage } from '../../services/ILocalizationService';
 
 /**
  * UseCase que orquesta el proceso de envío de notificaciones
@@ -20,14 +21,16 @@ export class SendCertificateNotificationsUseCase {
   constructor(
     private readonly certificateRepository: ICertificateRepository,
     private readonly notificationRepository: INotificationRepository,
-    private readonly emailService: IEmailService
+    private readonly emailService: IEmailService,
+    private readonly localizationService: ILocalizationService
   ) {}
 
   /**
    * Ejecuta el proceso de notificaciones
+   * @param force Si es true, ignora la frecuencia y envía siempre (guarda con result=FORCE)
    * @returns Resumen con estadísticas y resultados detallados
    */
-  async execute(): Promise<NotificationSummary> {
+  async execute(force: boolean = false): Promise<NotificationSummary> {
     const executedAt = new Date().toISOString();
     const results: NotificationResultDetail[] = [];
 
@@ -45,11 +48,13 @@ export class SendCertificateNotificationsUseCase {
     const allCertificates = [...warningCerts, ...expiredCerts];
 
     // 2. Filtrar certificados que necesitan notificación según frecuencia
-    const certsToNotify = await this.filterCertificatesNeedingNotification(allCertificates);
+    const certsToNotify = force 
+      ? allCertificates 
+      : await this.filterCertificatesNeedingNotification(allCertificates);
 
     // 3. Enviar notificaciones
     for (const cert of certsToNotify) {
-      const result = await this.sendNotificationForCertificate(cert);
+      const result = await this.sendNotificationForCertificate(cert, force);
       results.push(result);
     }
 
@@ -88,13 +93,14 @@ export class SendCertificateNotificationsUseCase {
   /**
    * Determina si se debe enviar notificación para un certificado
    * según el tiempo transcurrido desde la última notificación
+   * NOTA: findLastByCertificateId ya excluye notificaciones FORCE
    */
   private async shouldSendNotification(certificate: Certificate): Promise<boolean> {
     const lastNotification = await this.notificationRepository.findLastByCertificateId(
       certificate.id
     );
 
-    // Si nunca se ha enviado notificación, enviar
+    // Si nunca se ha enviado notificación (o solo FORCE), enviar
     if (!lastNotification) {
       return true;
     }
@@ -128,7 +134,8 @@ export class SendCertificateNotificationsUseCase {
    * y guarda el registro en la base de datos
    */
   private async sendNotificationForCertificate(
-    certificate: Certificate
+    certificate: Certificate,
+    isForceMode: boolean = false
   ): Promise<NotificationResultDetail> {
     const notificationId = randomUUID();
     const sentAt = new Date().toISOString();
@@ -139,38 +146,77 @@ export class SendCertificateNotificationsUseCase {
       success: false
     };
 
+    const allRecipientEmails: string[] = [];
+    let overallErrorMessage: string | null = null;
+    let successCount = 0;
+    let errorCount = 0;
+
+    // Determinar template según estado de expiración
+    const emailTemplate = certificate.expirationStatus === ExpirationStatus.EXPIRED
+      ? EmailTemplate.CERTIFICATE_EXPIRED
+      : EmailTemplate.CERTIFICATE_WARNING;
+
     try {
-      // Intentar enviar el email
-      await this.emailService.sendExpirationAlert(certificate);
+      // Enviar email individual a cada contacto en su idioma
+      for (const contact of certificate.responsibleContacts) {
+        allRecipientEmails.push(contact.email);
+        
+        try {
+          const content = this.localizationService.getEmailContent(
+            emailTemplate,
+            certificate,
+            contact.language as SupportedLanguage
+          );
 
-      // Si tuvo éxito, guardar notificación exitosa
-      const notificationDTO: CreateNotificationDTO = {
-        certificateId: certificate.id,
-        recipientEmails: certificate.responsibleEmails,
-        subject: this.buildEmailSubject(certificate),
-        expirationStatusAtTime: certificate.expirationStatus,
-        result: NotificationResult.SENT
-      };
+          await this.emailService.sendEmail(
+            contact.email,
+            content.subject,
+            content.htmlBody,
+            content.textBody
+          );
+          
+          successCount++;
+          console.log(`✅ Email de notificación enviado a ${contact.email} (${contact.language})`);
+        } catch (error) {
+          errorCount++;
+          console.error(`❌ Error al enviar email a ${contact.email}:`, error);
+          const currentError = this.buildErrorMessage(error);
+          overallErrorMessage = overallErrorMessage ? `${overallErrorMessage}; ${currentError}` : currentError;
+        }
+      }
 
-      await this.notificationRepository.save({
-        id: notificationId,
-        sentAt,
-        ...notificationDTO,
-        errorMessage: null
-      });
+      // Si al menos uno tuvo éxito, consideramos la notificación como enviada
+      if (successCount > 0) {
+        const notificationDTO: CreateNotificationDTO = {
+          certificateId: certificate.id,
+          recipientEmails: allRecipientEmails,
+          subject: this.buildEmailSubject(certificate),
+          expirationStatusAtTime: certificate.expirationStatus,
+          result: isForceMode ? NotificationResult.FORCE : NotificationResult.SENT
+        };
 
-      return {
-        ...baseResult,
-        success: true
-      };
+        await this.notificationRepository.save({
+          id: notificationId,
+          sentAt,
+          ...notificationDTO,
+          errorMessage: errorCount > 0 ? `${successCount}/${allRecipientEmails.length} enviados. Errores: ${overallErrorMessage}` : null
+        });
+
+        return {
+          ...baseResult,
+          success: true
+        };
+      } else {
+        // Todos fallaron
+        throw new Error(overallErrorMessage || 'Error al enviar todos los emails');
+      }
     } catch (error) {
       // Construir mensaje de error detallado para auditoría
       const errorMessage = this.buildErrorMessage(error);
 
-      // Guardar notificación fallida
       const notificationDTO: CreateNotificationDTO = {
         certificateId: certificate.id,
-        recipientEmails: certificate.responsibleEmails,
+        recipientEmails: allRecipientEmails.length > 0 ? allRecipientEmails : certificate.responsibleContacts.map(c => c.email),
         subject: this.buildEmailSubject(certificate),
         expirationStatusAtTime: certificate.expirationStatus,
         result: NotificationResult.ERROR,

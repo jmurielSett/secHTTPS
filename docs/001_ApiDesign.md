@@ -16,13 +16,40 @@ API REST para gestionar el ciclo de vida de certificados SSL/TLS instalados en s
   "filePath": "string (path en servidor)",
   "client": "string (empresa propietaria)",
   "configPath": "string (path del archivo de configuración)",
-  "responsibleEmails": ["string"],
+  "responsibleContacts": [
+    {
+      "email": "string",
+      "language": "es | en | fr | de",
+      "name": "string (opcional)"
+    }
+  ],
   "status": "ACTIVE | DELETED",
   "expirationStatus": "NORMAL | WARNING | EXPIRED",
   "createdAt": "datetime (ISO 8601)",
   "updatedAt": "datetime (ISO 8601)"
 }
 ```
+
+### Contacto Responsable (ResponsibleContact)
+```json
+{
+  "email": "string (formato email válido)",
+  "language": "es | en | fr | de",
+  "name": "string (opcional)"
+}
+```
+
+**Idiomas soportados**:
+- `es`: Español (España/Latinoamérica)
+- `en`: English (Internacional)
+- `fr`: Français (Francia)
+- `de`: Deutsch (Alemania)
+
+**Comportamiento multiidioma**:
+- Cada contacto recibe notificaciones en su idioma preferido
+- Los emails se envían **individualmente** (no CC/BCC masivo)
+- El asunto, cuerpo HTML y texto plano se localizan según el idioma del destinatario
+- Si el idioma especificado no existe, se usa `es` (español) como fallback
 
 ### Estados
 - **Estado del certificado**: `ACTIVE` (por defecto), `DELETED`
@@ -69,7 +96,17 @@ Body:
   "filePath": "/etc/ssl/certs/example.com.crt",
   "client": "Empresa XYZ",
   "configPath": "/etc/nginx/sites-available/example.com",
-  "responsibleEmails": ["admin@empresa.com", "devops@empresa.com"]
+  "responsibleContacts": [
+    {
+      "email": "admin@empresa.com",
+      "language": "es",
+      "name": "Juan Pérez"
+    },
+    {
+      "email": "devops@empresa.com",
+      "language": "en"
+    }
+  ]
 }
 
 Response 201:
@@ -85,16 +122,20 @@ Response 201:
 ```
 
 **⚡ Comportamiento Adicional**:
-- Si SMTP está configurado, se envía **automáticamente un email de notificación** a los responsables con:
-  - Asunto: `✅ Nuevo Certificado Registrado: example.com.crt`
-  - Información completa del certificado
+- Si SMTP está configurado, se envían **emails individuales a cada contacto responsable** en su idioma preferido:
+  - Asunto localizado: `✅ Nuevo Certificado Registrado: example.com.crt` (español) o `✅ New Certificate Registered: example.com.crt` (inglés)
+  - Cuerpo HTML con información completa del certificado localizada
+  - Formato profesional con colores, iconos y estructura responsive
   - Confirmación de monitoreo automático
-- Se registra la notificación en la tabla `notifications` con:
-  - `expirationStatusAtTime = NORMAL` (estado del certificado recién creado)
-  - `result = SENT` o `ERROR` según resultado del envío
-  - `errorMessage` si el envío falló
+- Cada contacto recibe su email **por separado** (no CC/BCC)
+- Se registra **una notificación en BD** con el resumen del envío:
+  - `recipientEmails`: Lista de todos los contactos notificados
+  - `expirationStatusAtTime = NORMAL` (certificado recién creado)
+  - `result = SENT` si al menos un email fue exitoso, `ERROR` si todos fallaron
+  - `errorMessage`: Conteo de éxitos/fallos y detalles de errores si los hubo
 - El registro en `notifications` se guarda **siempre** (exitoso o fallido)
-- Si falla el envío del email, la creación del certificado **NO se interrumpe** (solo se registra el error)
+- Si falla el envío de algunos emails, la creación del certificado **NO se interrumpe** (solo se registra el error)
+- Si todos los emails fallan, el certificado se crea igualmente pero se registra el error completo
 
 ### 3.2. Listar y Filtrar Certificados
 ```
@@ -165,7 +206,13 @@ Body:
 {
   "fileName": "nuevo-nombre.crt",
   "expirationDate": "2027-06-01",
-  "responsibleEmails": ["nuevo@empresa.com"]
+  "responsibleContacts": [
+    {
+      "email": "nuevo@empresa.com",
+      "language": "en",
+      "name": "John Doe"
+    }
+  ]
 }
 
 Response 200:
@@ -280,16 +327,38 @@ Response 201:
 - Los certificados no se eliminan físicamente de la base de datos
 - Se utiliza eliminación lógica mediante el campo `status = DELETED`
 
-### 4.5. Sistema de Notificaciones por Email
+### 4.5. Sistema de Notificaciones por Email (Multiidioma)
 - **Frecuencia de envío**:
-  - `WARNING`: Email cada **2 días** a los responsables
-  - `EXPIRED`: Email **cada día** a los responsables
-  - `NORMAL`: No se envían notificaciones
-- **Destinatarios**: Emails definidos en el campo `responsibleEmails` del certificado
+  - `WARNING`: Email cada **2 días** (48 horas) a los responsables
+  - `EXPIRED`: Email **cada día** (24 horas) a los responsables
+  - `NORMAL`: Solo al crear el certificado (notificación de creación)
+- **Destinatarios**: Contactos definidos en el campo `responsibleContacts` del certificado
+- **Localización**:
+  - Cada contacto recibe el email en su idioma preferido (`language`)
+  - Templates disponibles: Español (es), English (en), Français (fr), Deutsch (de)
+  - Emails enviados **individualmente** (un email por contacto, no CC/BCC masivo)
+  - Asunto, cuerpo HTML y texto plano completamente localizados
+  - Formato profesional con colores según severidad (amarillo=WARNING, naranja=EXPIRED)
 - **Certificados eliminados**: No se envían notificaciones a certificados con `status = DELETED`
-- **Registro**: Cada envío (exitoso o fallido) se registra en la tabla de notificaciones
-- **Implementación**: Un proceso programado (cron/scheduler) verifica periódicamente los certificados y envía las notificaciones según las reglas definidas
+- **Registro**: Cada ciclo de envío se registra en la tabla `notifications` con:
+  - Resumen de éxitos y fallos
+  - Lista completa de destinatarios
+  - ErrorMessage con detalles si hubo fallos
+- **Implementación**: 
+  - Scheduler (cron job) verifica certificados periódicamente (por defecto: 08:00 AM diario)
+  - LocalizationService carga templates JSON según idioma del destinatario
+  - NodemailerEmailService gestiona envío SMTP
 - **Prevención de duplicados**: El sistema verifica la última notificación enviada para respetar las frecuencias establecidas
+- **Arquitectura**:
+  ```
+  SendCertificateNotificationsUseCase
+    → LocalizationService.getEmailContent(template, certificate, language)
+      → Carga template JSON desde /templates/{language}/{template}.json
+      → Reemplaza variables dinámicas (fileName, server, expirationDate, etc.)
+      → Genera HTML y texto plano localizados
+    → EmailService.sendEmail(to, subject, htmlBody, textBody)
+    → NotificationRepository.save(result)
+  ```
 
 ## 5. Códigos de Respuesta HTTP
 
@@ -303,13 +372,17 @@ Response 201:
 
 ### Campos requeridos:
 - `fileName`: string no vacío
-- `startDate`: fecha válida
-- `expirationDate`: fecha válida, debe ser posterior a `startDate`
+- `startDate`: fecha válida (ISO 8601)
+- `expirationDate`: fecha válida (ISO 8601), debe ser posterior a `startDate`
 - `server`: string no vacío
 - `filePath`: string no vacío (path válido)
 - `client`: string no vacío
 - `configPath`: string no vacío (path válido)
-- `responsibleEmails`: array con al menos un email válido
+- `responsibleContacts`: array con al menos un contacto válido
+  - Cada contacto debe tener:
+    - `email`: string con formato email válido
+    - `language`: string con valor válido (es, en, fr, de)
+    - `name`: string opcional (nombre del responsable)
 
 ### Formato:
 - Fechas en formato ISO 8601

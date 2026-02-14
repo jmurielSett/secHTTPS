@@ -1,7 +1,6 @@
-import { randomUUID } from 'node:crypto';
 import { INotificationRepository } from '../../domain/repositories/INotificationRepository';
 import { GetNotificationsFilters } from '../../domain/usecases/notifications/GetNotificationsUseCase';
-import { Notification } from '../../types/notification';
+import { Notification, NotificationResult } from '../../types/notification';
 import { getPool } from '../database/connection';
 
 export class PostgresNotificationRepository implements INotificationRepository {
@@ -33,13 +32,12 @@ export class PostgresNotificationRepository implements INotificationRepository {
       // Insert recipient emails
       if (notification.recipientEmails && notification.recipientEmails.length > 0) {
         const insertEmailQuery = `
-          INSERT INTO notification_recipient_emails (id, notification_id, email)
-          VALUES ($1, $2, $3)
+          INSERT INTO notification_recipient_emails (notification_id, recipient_email)
+          VALUES ($1, $2)
         `;
         
         for (const email of notification.recipientEmails) {
           await client.query(insertEmailQuery, [
-            randomUUID(),
             notification.id,
             email
           ]);
@@ -60,7 +58,7 @@ export class PostgresNotificationRepository implements INotificationRepository {
     const query = `
       SELECT 
         n.*,
-        e.email
+        e.recipient_email
       FROM notifications n
       LEFT JOIN notification_recipient_emails e ON n.id = e.notification_id
       WHERE n.certificate_id = $1
@@ -78,14 +76,16 @@ export class PostgresNotificationRepository implements INotificationRepository {
 
   async findLastByCertificateId(certificateId: string): Promise<Notification | null> {
     const notifications = await this.findByCertificateId(certificateId);
-    return notifications.length > 0 ? notifications[0] : null;
+    // Excluir notificaciones FORCE (envíos manuales) para cálculo de frecuencia
+    const validNotifications = notifications.filter(n => n.result !== NotificationResult.FORCE);
+    return validNotifications.length > 0 ? validNotifications[0] : null;
   }
 
   async findAll(filters?: GetNotificationsFilters): Promise<Notification[]> {
     let query = `
       SELECT 
         n.*,
-        e.email
+        e.recipient_email
       FROM notifications n
       LEFT JOIN notification_recipient_emails e ON n.id = e.notification_id
     `;
@@ -147,7 +147,7 @@ export class PostgresNotificationRepository implements INotificationRepository {
     const firstRow = rows[0];
     
     const recipientEmails = rows
-      .map(row => row.email)
+      .map(row => row.recipient_email)
       .filter((email): email is string => email !== null);
     
     return {

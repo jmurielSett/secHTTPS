@@ -1,0 +1,20 @@
+{
+  "subject": "🔴 URGENT: Certificate {{fileName}} EXPIRED",
+  "greeting": "Your SSL/TLS certificate has EXPIRED",
+  "description": "The following certificate has already expired. Services depending on it may be out of service:",
+  "statusText": "EXPIRED",
+  "labels": {
+    "fileName": "File name",
+    "server": "Server",
+    "client": "Client",
+    "expirationDate": "Expiration date",
+    "filePath": "File path",
+    "configPath": "Configuration path"
+  },
+  "action": {
+    "title": "⚠️ URGENT ACTION REQUIRED",
+    "message": "This certificate has already expired. Services depending on it may be out of service. Please renew and install the certificate immediately."
+  },
+  "footer": "This is an automated message from the SSL/TLS Certificate Monitoring System",
+  "systemName": "SecHTTPS Monitor"
+}

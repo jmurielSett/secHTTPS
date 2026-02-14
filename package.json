@@ -23,6 +23,7 @@
     "test:ui": "vitest --ui",
     "test:coverage": "vitest --coverage",
     "test:run": "vitest --run",
+    "notify:send": "tsx src/scripts/send-notifications.ts",
     "db:migrate": "tsx src/scripts/migrate.ts",
     "db:reset": "tsx src/scripts/reset-db.ts",
     "docker:up": "docker-compose up -d",

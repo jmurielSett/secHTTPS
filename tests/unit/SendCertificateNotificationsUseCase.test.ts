@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { ICertificateRepository } from '../../src/domain/repositories/ICertificateRepository';
 import { INotificationRepository } from '../../src/domain/repositories/INotificationRepository';
 import { IEmailService } from '../../src/domain/services/IEmailService';
+import { ILocalizationService, LocalizedEmailContent, SupportedLanguage } from '../../src/domain/services/ILocalizationService';
 import { SendCertificateNotificationsUseCase } from '../../src/domain/usecases/notifications/SendCertificateNotificationsUseCase';
 import { Certificate, CertificateStatus } from '../../src/types/certificate';
 import { Notification, NotificationResult } from '../../src/types/notification';
@@ -19,6 +20,7 @@ describe('SendCertificateNotificationsUseCase', () => {
   let mockCertificateRepo: ICertificateRepository;
   let mockNotificationRepo: INotificationRepository;
   let mockEmailService: IEmailService;
+  let mockLocalizationService: ILocalizationService;
 
   // Mock certificates
   const warningCert: Certificate = {
@@ -30,7 +32,7 @@ describe('SendCertificateNotificationsUseCase', () => {
     filePath: '/etc/ssl/warning.crt',
     client: 'Empresa Test',
     configPath: '/etc/nginx/sites/test.conf',
-    responsibleEmails: ['admin@test.com'],
+    responsibleContacts: [{ email: 'admin@test.com', language: 'es' }],
     status: CertificateStatus.ACTIVE,
     expirationStatus: ExpirationStatus.WARNING,
     createdAt: '2026-01-01T00:00:00Z',
@@ -46,7 +48,7 @@ describe('SendCertificateNotificationsUseCase', () => {
     filePath: '/etc/ssl/expired.crt',
     client: 'Empresa Test',
     configPath: '/etc/nginx/sites/test2.conf',
-    responsibleEmails: ['admin@test.com'],
+    responsibleContacts: [{ email: 'admin@test.com', language: 'es' }],
     status: CertificateStatus.ACTIVE,
     expirationStatus: ExpirationStatus.EXPIRED,
     createdAt: '2025-01-01T00:00:00Z',
@@ -72,16 +74,30 @@ describe('SendCertificateNotificationsUseCase', () => {
 
     // Mock email service
     mockEmailService = {
-      sendExpirationAlert: vi.fn(),
-      sendCertificateCreationNotification: vi.fn(),
+      sendEmail: vi.fn(),
       verifyConnection: vi.fn()
+    };
+
+    // Mock localization service
+    const mockEmailContent: LocalizedEmailContent = {
+      subject: 'Test Subject',
+      htmlBody: '<html>Test</html>',
+      textBody: 'Test'
+    };
+    
+    mockLocalizationService = {
+      getEmailContent: vi.fn().mockReturnValue(mockEmailContent),
+      isSupportedLanguage: vi.fn().mockReturnValue(true),
+      getDefaultLanguage: vi.fn().mockReturnValue(SupportedLanguage.ES),
+      normalizeLanguage: vi.fn((lang: string) => lang as SupportedLanguage)
     };
 
     // Create use case instance
     useCase = new SendCertificateNotificationsUseCase(
       mockCertificateRepo,
       mockNotificationRepo,
-      mockEmailService
+      mockEmailService,
+      mockLocalizationService
     );
   });
 
@@ -99,7 +115,7 @@ describe('SendCertificateNotificationsUseCase', () => {
       });
 
       vi.mocked(mockNotificationRepo.findLastByCertificateId).mockResolvedValue(null);
-      vi.mocked(mockEmailService.sendExpirationAlert).mockResolvedValue();
+      vi.mocked(mockEmailService.sendEmail).mockResolvedValue();
       vi.mocked(mockNotificationRepo.save).mockImplementation(async (notif) => notif);
 
       // Act
@@ -114,8 +130,8 @@ describe('SendCertificateNotificationsUseCase', () => {
       // Verificar que se llamó findAll dos veces (WARNING y EXPIRED)
       expect(mockCertificateRepo.findAll).toHaveBeenCalledTimes(2);
       
-      // Verificar que se enviaron dos emails
-      expect(mockEmailService.sendExpirationAlert).toHaveBeenCalledTimes(2);
+      // Verificar que se enviaron dos emails (uno por cada certificado)
+      expect(mockEmailService.sendEmail).toHaveBeenCalledTimes(2);
       
       // Verificar que se guardaron dos notificaciones
       expect(mockNotificationRepo.save).toHaveBeenCalledTimes(2);
@@ -151,7 +167,7 @@ describe('SendCertificateNotificationsUseCase', () => {
       expect(result.totalCertificatesChecked).toBe(1);
       expect(result.totalCertificatesNeedingNotification).toBe(0);
       expect(result.totalNotificationsSent).toBe(0);
-      expect(mockEmailService.sendExpirationAlert).not.toHaveBeenCalled();
+      expect(mockEmailService.sendEmail).not.toHaveBeenCalled();
     });
 
     it('debería enviar notificación si la última fue hace más de 48h (WARNING)', async () => {
@@ -176,7 +192,7 @@ describe('SendCertificateNotificationsUseCase', () => {
       };
 
       vi.mocked(mockNotificationRepo.findLastByCertificateId).mockResolvedValue(oldNotification);
-      vi.mocked(mockEmailService.sendExpirationAlert).mockResolvedValue();
+      vi.mocked(mockEmailService.sendEmail).mockResolvedValue();
       vi.mocked(mockNotificationRepo.save).mockImplementation(async (notif) => notif);
 
       // Act
@@ -185,7 +201,7 @@ describe('SendCertificateNotificationsUseCase', () => {
       // Assert
       expect(result.totalCertificatesNeedingNotification).toBe(1);
       expect(result.totalNotificationsSent).toBe(1);
-      expect(mockEmailService.sendExpirationAlert).toHaveBeenCalledWith(warningCert);
+      expect(mockEmailService.sendEmail).toHaveBeenCalled();
     });
 
     it('debería NO enviar notificación si la última fue hace menos de 24h (EXPIRED)', async () => {
@@ -216,7 +232,7 @@ describe('SendCertificateNotificationsUseCase', () => {
 
       // Assert
       expect(result.totalCertificatesNeedingNotification).toBe(0);
-      expect(mockEmailService.sendExpirationAlert).not.toHaveBeenCalled();
+      expect(mockEmailService.sendEmail).not.toHaveBeenCalled();
     });
 
     it('debería enviar notificación si la última fue hace más de 24h (EXPIRED)', async () => {
@@ -241,7 +257,7 @@ describe('SendCertificateNotificationsUseCase', () => {
       };
 
       vi.mocked(mockNotificationRepo.findLastByCertificateId).mockResolvedValue(oldNotification);
-      vi.mocked(mockEmailService.sendExpirationAlert).mockResolvedValue();
+      vi.mocked(mockEmailService.sendEmail).mockResolvedValue();
       vi.mocked(mockNotificationRepo.save).mockImplementation(async (notif) => notif);
 
       // Act
@@ -262,7 +278,7 @@ describe('SendCertificateNotificationsUseCase', () => {
       });
 
       vi.mocked(mockNotificationRepo.findLastByCertificateId).mockResolvedValue(null);
-      vi.mocked(mockEmailService.sendExpirationAlert).mockRejectedValue(
+      vi.mocked(mockEmailService.sendEmail).mockRejectedValue(
         new Error('SMTP connection failed')
       );
       vi.mocked(mockNotificationRepo.save).mockImplementation(async (notif) => notif);
@@ -295,7 +311,7 @@ describe('SendCertificateNotificationsUseCase', () => {
 
       // Assert
       expect(result.totalCertificatesChecked).toBe(0);
-      expect(mockEmailService.sendExpirationAlert).not.toHaveBeenCalled();
+      expect(mockEmailService.sendEmail).not.toHaveBeenCalled();
     });
 
     it('debería retornar 0 certificados si no hay WARNING ni EXPIRED', async () => {
@@ -309,7 +325,7 @@ describe('SendCertificateNotificationsUseCase', () => {
       expect(result.totalCertificatesChecked).toBe(0);
       expect(result.totalCertificatesNeedingNotification).toBe(0);
       expect(result.totalNotificationsSent).toBe(0);
-      expect(mockEmailService.sendExpirationAlert).not.toHaveBeenCalled();
+      expect(mockEmailService.sendEmail).not.toHaveBeenCalled();
     });
   });
 });

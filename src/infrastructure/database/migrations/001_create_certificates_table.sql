@@ -19,18 +19,23 @@ CREATE INDEX IF NOT EXISTS idx_certificates_client ON certificates(client);
 CREATE INDEX IF NOT EXISTS idx_certificates_server ON certificates(server);
 CREATE INDEX IF NOT EXISTS idx_certificates_expiration ON certificates(expiration_date);
 
--- Create table for certificate responsible emails (1:N relationship)
-CREATE TABLE IF NOT EXISTS certificate_responsible_emails (
-  id VARCHAR(36) PRIMARY KEY,
+-- Create table for certificate responsible contacts (1:N relationship)
+-- Using composite primary key to prevent duplicates and optimize queries
+CREATE TABLE IF NOT EXISTS certificate_responsible_contacts (
   certificate_id VARCHAR(36) NOT NULL,
   email VARCHAR(255) NOT NULL,
-  CONSTRAINT fk_cert_email_cert FOREIGN KEY (certificate_id) 
-    REFERENCES certificates(id) ON DELETE CASCADE
+  language VARCHAR(10) NOT NULL DEFAULT 'es',
+  name VARCHAR(255),
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  CONSTRAINT fk_cert_contact_cert FOREIGN KEY (certificate_id) 
+    REFERENCES certificates(id) ON DELETE CASCADE,
+  PRIMARY KEY (certificate_id, email)
 );
 
--- Create index to optimize email lookups by certificate
-CREATE INDEX IF NOT EXISTS idx_cert_emails_cert_id ON certificate_responsible_emails(certificate_id);
+-- Create index to optimize lookups by certificate
+CREATE INDEX IF NOT EXISTS idx_cert_contacts_cert_id ON certificate_responsible_contacts(certificate_id);
 
--- Add comment for documentation
+-- Add comments for documentation
 COMMENT ON TABLE certificates IS 'SSL/TLS certificates managed by the application';
-COMMENT ON TABLE certificate_responsible_emails IS 'Responsible email addresses for each certificate (normalized 1:N)';
+COMMENT ON TABLE certificate_responsible_contacts IS 'Responsible contacts for each certificate with language preference (normalized 1:N)';
+COMMENT ON COLUMN certificate_responsible_contacts.language IS 'ISO 639-1 language code (es, en, fr, de, etc.)';

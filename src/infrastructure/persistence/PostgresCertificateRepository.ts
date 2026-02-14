@@ -1,4 +1,3 @@
-import { randomUUID } from 'node:crypto';
 import { ICertificateRepository } from '../../domain/repositories/ICertificateRepository';
 import { CertificateExpirationService } from '../../domain/services/CertificateExpirationService';
 import { GetCertificatesFilters } from '../../domain/usecases/certificates/GetCertificatesUseCase';
@@ -35,18 +34,19 @@ export class PostgresCertificateRepository implements ICertificateRepository {
         certificate.updatedAt
       ]);
       
-      // Insert responsible emails
-      if (certificate.responsibleEmails && certificate.responsibleEmails.length > 0) {
-        const insertEmailQuery = `
-          INSERT INTO certificate_responsible_emails (id, certificate_id, email)
-          VALUES ($1, $2, $3)
+      // Insert responsible contacts
+      if (certificate.responsibleContacts && certificate.responsibleContacts.length > 0) {
+        const insertContactQuery = `
+          INSERT INTO certificate_responsible_contacts (certificate_id, email, language, name)
+          VALUES ($1, $2, $3, $4)
         `;
         
-        for (const email of certificate.responsibleEmails) {
-          await client.query(insertEmailQuery, [
-            randomUUID(),
+        for (const contact of certificate.responsibleContacts) {
+          await client.query(insertContactQuery, [
             certificate.id,
-            email
+            contact.email,
+            contact.language,
+            contact.name || null
           ]);
         }
       }
@@ -65,9 +65,11 @@ export class PostgresCertificateRepository implements ICertificateRepository {
     const query = `
       SELECT 
         c.*,
-        e.email
+        e.email,
+        e.language,
+        e.name
       FROM certificates c
-      LEFT JOIN certificate_responsible_emails e ON c.id = e.certificate_id
+      LEFT JOIN certificate_responsible_contacts e ON c.id = e.certificate_id
       WHERE c.id = $1
     `;
     
@@ -84,9 +86,11 @@ export class PostgresCertificateRepository implements ICertificateRepository {
     let query = `
       SELECT 
         c.*,
-        e.email
+        e.email,
+        e.language,
+        e.name
       FROM certificates c
-      LEFT JOIN certificate_responsible_emails e ON c.id = e.certificate_id
+      LEFT JOIN certificate_responsible_contacts e ON c.id = e.certificate_id
     `;
     
     const conditions: string[] = [];
@@ -179,24 +183,25 @@ export class PostgresCertificateRepository implements ICertificateRepository {
         certificate.updatedAt
       ]);
       
-      // Delete old emails
+      // Delete old contacts
       await client.query(
-        'DELETE FROM certificate_responsible_emails WHERE certificate_id = $1',
+        'DELETE FROM certificate_responsible_contacts WHERE certificate_id = $1',
         [certificate.id]
       );
       
-      // Insert new emails
-      if (certificate.responsibleEmails && certificate.responsibleEmails.length > 0) {
-        const insertEmailQuery = `
-          INSERT INTO certificate_responsible_emails (id, certificate_id, email)
-          VALUES ($1, $2, $3)
+      // Insert new contacts
+      if (certificate.responsibleContacts && certificate.responsibleContacts.length > 0) {
+        const insertContactQuery = `
+          INSERT INTO certificate_responsible_contacts (certificate_id, email, language, name)
+          VALUES ($1, $2, $3, $4)
         `;
         
-        for (const email of certificate.responsibleEmails) {
-          await client.query(insertEmailQuery, [
-            randomUUID(),
+        for (const contact of certificate.responsibleContacts) {
+          await client.query(insertContactQuery, [
             certificate.id,
-            email
+            contact.email,
+            contact.language,
+            contact.name || null
           ]);
         }
       }
@@ -228,14 +233,18 @@ export class PostgresCertificateRepository implements ICertificateRepository {
 
   /**
    * Maps database rows to a single Certificate object
-   * Handles multiple rows with the same certificate but different emails
+   * Handles multiple rows with the same certificate but different contacts
    */
   private mapRowsToCertificate(rows: any[]): Certificate {
     const firstRow = rows[0];
     
-    const responsibleEmails = rows
-      .map(row => row.email)
-      .filter((email): email is string => email !== null);
+    const responsibleContacts = rows
+      .filter(row => row.email !== null)
+      .map(row => ({
+        email: row.email,
+        language: row.language,
+        name: row.name || undefined
+      }));
     
     const expirationStatus = CertificateExpirationService.calculateExpirationStatus(
       firstRow.expiration_date
@@ -250,7 +259,7 @@ export class PostgresCertificateRepository implements ICertificateRepository {
       filePath: firstRow.file_path,
       client: firstRow.client,
       configPath: firstRow.config_path,
-      responsibleEmails,
+      responsibleContacts,
       status: firstRow.status,
       expirationStatus,
       createdAt: firstRow.created_at,

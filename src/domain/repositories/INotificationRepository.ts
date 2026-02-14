@@ -9,6 +9,11 @@ import { GetNotificationsFilters } from '../usecases/notifications/GetNotificati
 export interface INotificationRepository {
   save(notification: Notification): Promise<Notification>;
   findByCertificateId(certificateId: string): Promise<Notification[]>;
+  /**
+   * Encuentra la última notificación de un certificado (excluyendo FORCE)
+   * @param certificateId - ID del certificado
+   * @returns La última notificación SENT o ERROR, null si no hay ninguna
+   */
   findLastByCertificateId(certificateId: string): Promise<Notification | null>;
   findAll(filters?: GetNotificationsFilters): Promise<Notification[]>;
 }

@@ -2,7 +2,8 @@ import { ExpirationStatus } from './shared';
 
 export enum NotificationResult {
   SENT = 'SENT',
-  ERROR = 'ERROR'
+  ERROR = 'ERROR',
+  FORCE = 'FORCE'
 }
 
 export interface Notification {
