@@ -441,16 +441,18 @@ components:
           type: string
           description: Ruta del archivo de configuración donde se usa el certificado
           example: /etc/nginx/sites-available/example.com
-        responsibleEmails:
+        responsibleContacts:
           type: array
-          description: Lista de emails de los responsables del certificado
+          description: Lista de contactos responsables del certificado con idioma preferido
           items:
-            type: string
-            format: email
+            $ref: '#/components/schemas/ResponsibleContact'
           minItems: 1
           example:
-            - admin@empresa.com
-            - devops@empresa.com
+            - email: admin@empresa.com
+              language: es
+              name: Juan Pérez
+            - email: devops@empresa.com
+              language: en
         status:
           type: string
           enum: [ACTIVE, DELETED]
@@ -514,16 +516,18 @@ components:
           type: string
           description: Ruta del archivo de configuración donde se usa el certificado
           example: /etc/nginx/sites-available/example.com
-        responsibleEmails:
+        responsibleContacts:
           type: array
-          description: Lista de emails de los responsables del certificado
+          description: Lista de contactos responsables del certificado con idioma preferido
           items:
-            type: string
-            format: email
+            $ref: '#/components/schemas/ResponsibleContact'
           minItems: 1
           example:
-            - admin@empresa.com
-            - devops@empresa.com
+            - email: admin@empresa.com
+              language: es
+              name: Juan Pérez
+            - email: devops@empresa.com
+              language: en
 
     CertificateUpdate:
       type: object
@@ -558,15 +562,42 @@ components:
           type: string
           description: Ruta del archivo de configuración donde se usa el certificado
           example: /etc/nginx/sites-available/nuevo.com
-        responsibleEmails:
+        responsibleContacts:
           type: array
-          description: Lista de emails de los responsables del certificado
+          description: Lista de contactos responsables del certificado con idioma preferido
           items:
-            type: string
-            format: email
+            $ref: '#/components/schemas/ResponsibleContact'
           minItems: 1
           example:
-            - nuevo@empresa.com
+            - email: nuevo@empresa.com
+              language: en
+              name: John Doe
+
+    ResponsibleContact:
+      type: object
+      required:
+        - email
+        - language
+      properties:
+        email:
+          type: string
+          format: email
+          description: Dirección de email del contacto responsable
+          example: admin@empresa.com
+        language:
+          type: string
+          enum: [es, en, fr, de]
+          description: |
+            Idioma preferido para notificaciones del contacto.
+            - es: Español
+            - en: English
+            - fr: Français
+            - de: Deutsch
+          example: es
+        name:
+          type: string
+          description: Nombre del contacto responsable (opcional)
+          example: Juan Pérez
 
     CertificateList:
       type: object

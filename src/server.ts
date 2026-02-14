@@ -3,6 +3,7 @@ dotenv.config();
 
 import { createApp } from './app';
 import { SendCertificateNotificationsUseCase } from './domain/usecases/notifications/SendCertificateNotificationsUseCase';
+import { LocalizationService } from './infrastructure/localization/LocalizationService';
 import { NodemailerEmailService } from './infrastructure/messaging/NodemailerEmailService';
 import { NotificationSchedulerJob } from './infrastructure/scheduling/NotificationSchedulerJob';
 
@@ -11,7 +12,7 @@ const USE_POSTGRES = process.env.USE_POSTGRES === 'true';
 const ENABLE_SCHEDULER = process.env.ENABLE_SCHEDULER !== 'false'; // Habilitado por defecto
 const CRON_EXPRESSION = process.env.CRON_EXPRESSION || '0 8 * * *'; // 8:00 AM por defecto
 
-async function startServer() {
+void (async () => {
   try {
     // Create app with configured repositories (handles DB connection internally)
     const { app, repositories } = await createApp(USE_POSTGRES);
@@ -32,11 +33,15 @@ async function startServer() {
         if (isSmtpValid) {
           console.log(`✅ SMTP configurado correctamente (${process.env.SMTP_HOST})`);
           
+          // Create services
+          const localizationService = new LocalizationService();
+          
           // Create UseCase with dependencies
           const notificationUseCase = new SendCertificateNotificationsUseCase(
             repositories.certificateRepository,
             repositories.notificationRepository,
-            emailService
+            emailService,
+            localizationService
           );
 
           // Create and start scheduler
@@ -70,6 +75,4 @@ async function startServer() {
     console.error('Failed to start server:', error);
     process.exit(1);
   }
-}
-
-startServer();
+})();

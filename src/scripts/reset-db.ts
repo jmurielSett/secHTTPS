@@ -13,7 +13,7 @@ async function resetDatabase() {
     // Drop all tables in reverse order (due to foreign key constraints)
     await getPool().query('DROP TABLE IF EXISTS notification_recipient_emails CASCADE;');
     await getPool().query('DROP TABLE IF EXISTS notifications CASCADE;');
-    await getPool().query('DROP TABLE IF EXISTS certificate_responsible_emails CASCADE;');
+    await getPool().query('DROP TABLE IF EXISTS certificate_responsible_contacts CASCADE;');
     await getPool().query('DROP TABLE IF EXISTS certificates CASCADE;');
     await getPool().query('DROP TABLE IF EXISTS migrations CASCADE;');
     

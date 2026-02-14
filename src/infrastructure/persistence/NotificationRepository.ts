@@ -1,6 +1,6 @@
 import { INotificationRepository } from '../../domain/repositories/INotificationRepository';
 import { GetNotificationsFilters } from '../../domain/usecases/notifications/GetNotificationsUseCase';
-import { Notification } from '../../types/notification';
+import { Notification, NotificationResult } from '../../types/notification';
 
 export class InMemoryNotificationRepository implements INotificationRepository {
   private readonly notifications = new Map<string, Notification>();
@@ -18,7 +18,9 @@ export class InMemoryNotificationRepository implements INotificationRepository {
 
   async findLastByCertificateId(certificateId: string): Promise<Notification | null> {
     const notifications = await this.findByCertificateId(certificateId);
-    return notifications.length > 0 ? notifications[0] : null;
+    // Excluir notificaciones FORCE (envíos manuales) para cálculo de frecuencia
+    const validNotifications = notifications.filter(n => n.result !== NotificationResult.FORCE);
+    return validNotifications.length > 0 ? validNotifications[0] : null;
   }
 
   async findAll(filters?: GetNotificationsFilters): Promise<Notification[]> {

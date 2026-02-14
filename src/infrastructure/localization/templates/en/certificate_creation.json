@@ -1,0 +1,16 @@
+{
+  "subject": "✅ New Certificate Registered: {{fileName}}",
+  "greeting": "A new SSL/TLS certificate has been registered in the system",
+  "description": "Below you will find the details of the newly registered certificate:",
+  "labels": {
+    "fileName": "File name",
+    "server": "Server",
+    "client": "Client",
+    "expirationDate": "Expiration date",
+    "startDate": "Start date",
+    "filePath": "File path",
+    "configPath": "Configuration path"
+  },
+  "footer": "This is an automated message from the SSL/TLS Certificate Monitoring System",
+  "systemName": "SecHTTPS Monitor"
+}

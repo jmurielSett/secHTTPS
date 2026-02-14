@@ -1,14 +1,16 @@
 import { Router } from 'express';
-import { CertificateExpirationService } from '../../../domain/services/CertificateExpirationService';
-import { IEmailService } from '../../../domain/services/IEmailService';
 import { ICertificateRepository } from '../../../domain/repositories/ICertificateRepository';
 import { INotificationRepository } from '../../../domain/repositories/INotificationRepository';
+import { CertificateExpirationService } from '../../../domain/services/CertificateExpirationService';
+import { IEmailService } from '../../../domain/services/IEmailService';
+import { ILocalizationService } from '../../../domain/services/ILocalizationService';
 import { CreateCertificateUseCase } from '../../../domain/usecases/certificates/CreateCertificateUseCase';
 import { GetCertificateByIdUseCase } from '../../../domain/usecases/certificates/GetCertificateByIdUseCase';
 import { GetCertificatesUseCase } from '../../../domain/usecases/certificates/GetCertificatesUseCase';
 import { UpdateCertificateStatusUseCase } from '../../../domain/usecases/certificates/UpdateCertificateStatusUseCase';
 import { UpdateCertificateUseCase } from '../../../domain/usecases/certificates/UpdateCertificateUseCase';
 import { GetCertificateNotificationsUseCase } from '../../../domain/usecases/notifications/GetCertificateNotificationsUseCase';
+import { LocalizationService } from '../../localization/LocalizationService';
 import { NodemailerEmailService } from '../../messaging/NodemailerEmailService';
 import { CertificateController } from '../controllers/CertificateController';
 
@@ -20,6 +22,7 @@ export function createCertificateRouter(
   
   // Create services
   const expirationService = new CertificateExpirationService();
+  const localizationService: ILocalizationService = new LocalizationService();
   
   // Try to create email service (optional - only if SMTP is configured)
   let emailService: IEmailService | undefined;
@@ -28,6 +31,7 @@ export function createCertificateRouter(
     console.log('✅ Email service configurado para notificaciones de certificados creados');
   } catch (error) {
     console.log('⚠️ Email service no disponible para notificaciones de creación (SMTP no configurado)');
+    console.error('Error al inicializar servicio de email:', error);
     emailService = undefined;
   }
   
@@ -35,7 +39,8 @@ export function createCertificateRouter(
   const createCertificateUseCase = new CreateCertificateUseCase(
     certificateRepository,
     notificationRepository,
-    emailService
+    emailService,
+    localizationService
   );
   const getCertificatesUseCase = new GetCertificatesUseCase(certificateRepository);
   const getCertificateByIdUseCase = new GetCertificateByIdUseCase(certificateRepository);

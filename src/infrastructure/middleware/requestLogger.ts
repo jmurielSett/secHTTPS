@@ -6,28 +6,38 @@ import { NextFunction, Request, Response } from 'express';
 export function requestLogger(req: Request, res: Response, next: NextFunction): void {
   const startTime = Date.now();
   const timestamp = new Date().toISOString();
+  let logged = false; // Bandera para evitar logs duplicados
 
-  // Capturar el método finish de la respuesta para loggear cuando termine
-  const originalSend = res.send;
-  res.send = function (body): Response {
+  // Función para loggear cuando termine la respuesta
+  const logResponse = () => {
+    if (logged) return; // Evitar logs duplicados
+    logged = true;
+
     const duration = Date.now() - startTime;
     const statusCode = res.statusCode;
-
-    // Determinar el emoji según el código de estado
     const statusEmoji = getStatusEmoji(statusCode);
 
-    // Log de la petición con información relevante
     console.log(
       `${statusEmoji} [${timestamp}] ${req.method} ${req.originalUrl} - ${statusCode} - ${duration}ms`
     );
 
-    // Si hay query params, loggearlos también
     if (Object.keys(req.query).length > 0) {
       console.log(`   Query params:`, req.query);
     }
+  };
 
-    // Restaurar el método original y llamarlo
+  // Interceptar res.send
+  const originalSend = res.send;
+  res.send = function (body): Response {
+    logResponse();
     return originalSend.call(this, body);
+  };
+
+  // Interceptar res.json (método más común en APIs REST)
+  const originalJson = res.json;
+  res.json = function (body): Response {
+    logResponse();
+    return originalJson.call(this, body);
   };
 
   next();

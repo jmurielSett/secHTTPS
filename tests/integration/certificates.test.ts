@@ -24,7 +24,7 @@ describe('Certificates API - /api/certif', () => {
       filePath: '/etc/ssl/test.crt',
       client: 'Test Client',
       configPath: '/etc/nginx/test',
-      responsibleEmails: ['test@test.com']
+      responsibleContacts: [{ email: 'test@test.com', language: 'es' }]
     };
 
     const response = await request(app)
@@ -44,7 +44,10 @@ describe('Certificates API - /api/certif', () => {
         filePath: '/etc/ssl/certs/example.com.crt',
         client: 'Empresa XYZ',
         configPath: '/etc/nginx/sites-available/example.com',
-        responsibleEmails: ['admin@empresa.com', 'devops@empresa.com']
+        responsibleContacts: [
+          { email: 'admin@empresa.com', language: 'es', name: 'Admin' },
+          { email: 'devops@empresa.com', language: 'en' }
+        ]
       };
 
       const response = await request(app)
@@ -84,7 +87,7 @@ describe('Certificates API - /api/certif', () => {
         filePath: '/etc/ssl/certs/example.com.crt',
         client: 'Empresa XYZ',
         configPath: '/etc/nginx/sites-available/example.com',
-        responsibleEmails: ['admin@empresa.com']
+        responsibleContacts: [{ email: 'admin@empresa.com', language: 'es' }]
       };
 
       const response = await request(app)
@@ -96,7 +99,7 @@ describe('Certificates API - /api/certif', () => {
       expect(response.body).toHaveProperty('message');
     });
 
-    it('debería retornar 400 si responsibleEmails está vacío', async () => {
+    it('debería retornar 400 si responsibleContacts está vacío', async () => {
       const invalidCertificate = {
         fileName: 'example.com.crt',
         startDate: '2026-01-01',
@@ -105,7 +108,7 @@ describe('Certificates API - /api/certif', () => {
         filePath: '/etc/ssl/certs/example.com.crt',
         client: 'Empresa XYZ',
         configPath: '/etc/nginx/sites-available/example.com',
-        responsibleEmails: []
+        responsibleContacts: []
       };
 
       const response = await request(app)
@@ -345,7 +348,7 @@ describe('Certificates API - /api/certif', () => {
       expect(response.body).toHaveProperty('filePath');
       expect(response.body).toHaveProperty('client');
       expect(response.body).toHaveProperty('configPath');
-      expect(response.body).toHaveProperty('responsibleEmails');
+      expect(response.body).toHaveProperty('responsibleContacts');
       expect(response.body).toHaveProperty('status');
       expect(response.body).toHaveProperty('expirationStatus');
       expect(response.body).toHaveProperty('createdAt');
@@ -384,7 +387,7 @@ describe('Certificates API - /api/certif', () => {
       const updateData = {
         fileName: 'nuevo-nombre.crt',
         expirationDate: '2027-06-01',
-        responsibleEmails: ['nuevo@empresa.com']
+        responsibleContacts: [{ email: 'nuevo@empresa.com', language: 'es' }]
       };
 
       const response = await request(app)

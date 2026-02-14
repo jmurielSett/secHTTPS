@@ -1,0 +1,20 @@
+{
+  "subject": "⚠️ Alert: Certificate {{fileName}} expires soon",
+  "greeting": "Your SSL/TLS certificate is about to expire",
+  "description": "The following certificate will expire soon. Please renew it before the expiration date to avoid service interruptions:",
+  "daysUntilExpiration": "Expires in {{days}} day(s)",
+  "labels": {
+    "fileName": "File name",
+    "server": "Server",
+    "client": "Client",
+    "expirationDate": "Expiration date",
+    "filePath": "File path",
+    "configPath": "Configuration path"
+  },
+  "action": {
+    "title": "⚠️ Action Required",
+    "message": "Please proceed to renew this certificate before the expiration date to avoid service interruptions."
+  },
+  "footer": "This is an automated message from the SSL/TLS Certificate Monitoring System",
+  "systemName": "SecHTTPS Monitor"
+}

@@ -1,0 +1,20 @@
+{
+  "subject": "⚠️ Alerta: Certificado {{fileName}} próximo a expirar",
+  "greeting": "Su certificado SSL/TLS está próximo a expirar",
+  "description": "El siguiente certificado expirará pronto. Por favor, renuévelo antes de la fecha de expiración para evitar interrupciones en el servicio:",
+  "daysUntilExpiration": "Expira en {{days}} día(s)",
+  "labels": {
+    "fileName": "Nombre del archivo",
+    "server": "Servidor",
+    "client": "Cliente",
+    "expirationDate": "Fecha de expiración",
+    "filePath": "Ruta del archivo",
+    "configPath": "Ruta de configuración"
+  },
+  "action": {
+    "title": "⚠️ Acción Requerida",
+    "message": "Por favor, proceda a renovar este certificado antes de la fecha de expiración para evitar interrupciones en el servicio."
+  },
+  "footer": "Este es un mensaje automático del Sistema de Monitoreo de Certificados SSL/TLS",
+  "systemName": "SecHTTPS Monitor"
+}

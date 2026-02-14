@@ -5,7 +5,7 @@ import { DatabaseMigrator } from '../infrastructure/database/migrator';
 // Load environment variables from .env
 dotenv.config();
 
-async function runMigrations() {
+void (async () => {
   try {
     console.log('🚀 Starting database migrations...');
     
@@ -21,6 +21,4 @@ async function runMigrations() {
   } finally {
     await closeDatabaseConnection();
   }
-}
-
-runMigrations();
+})();

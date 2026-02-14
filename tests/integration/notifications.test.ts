@@ -24,7 +24,7 @@ describe('Notifications API', () => {
       filePath: '/etc/ssl/test.crt',
       client: 'Test Client',
       configPath: '/etc/nginx/test',
-      responsibleEmails: ['test@test.com']
+      responsibleContacts: [{ email: 'test@test.com', language: 'es' }]
     };
 
     const response = await request(app)

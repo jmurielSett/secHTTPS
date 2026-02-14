@@ -1,0 +1,20 @@
+{
+  "subject": "🔴 URGENTE: Certificado {{fileName}} EXPIRADO",
+  "greeting": "Su certificado SSL/TLS ha EXPIRADO",
+  "description": "El siguiente certificado ya ha expirado. Los servicios que dependen de él pueden estar fuera de servicio:",
+  "statusText": "EXPIRADO",
+  "labels": {
+    "fileName": "Nombre del archivo",
+    "server": "Servidor",
+    "client": "Cliente",
+    "expirationDate": "Fecha de expiración",
+    "filePath": "Ruta del archivo",
+    "configPath": "Ruta de configuración"
+  },
+  "action": {
+    "title": "⚠️ ACCIÓN REQUERIDA URGENTE",
+    "message": "Este certificado ya ha expirado. Los servicios que dependen de él pueden estar fuera de servicio. Por favor, renueve e instale el certificado inmediatamente."
+  },
+  "footer": "Este es un mensaje automático del Sistema de Monitoreo de Certificados SSL/TLS",
+  "systemName": "SecHTTPS Monitor"
+}

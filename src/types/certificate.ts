@@ -5,6 +5,15 @@ export enum CertificateStatus {
   DELETED = 'DELETED'
 }
 
+/**
+ * Represents a responsible contact for a certificate with language preference
+ */
+export interface ResponsibleContact {
+  email: string;
+  language: string;  // ISO 639-1 language code: 'es', 'en', 'fr', 'de', etc.
+  name?: string;     // Optional: contact name for personalization
+}
+
 export interface Certificate {
   id: string;
   fileName: string;
@@ -14,7 +23,7 @@ export interface Certificate {
   filePath: string;
   client: string;
   configPath: string;
-  responsibleEmails: string[];
+  responsibleContacts: ResponsibleContact[];
   status: CertificateStatus;
   expirationStatus: ExpirationStatus;
   createdAt: string;
@@ -29,7 +38,7 @@ export interface CreateCertificateDTO {
   filePath: string;
   client: string;
   configPath: string;
-  responsibleEmails: string[];
+  responsibleContacts: ResponsibleContact[];
 }
 
 export interface UpdateCertificateDTO {
@@ -40,5 +49,5 @@ export interface UpdateCertificateDTO {
   filePath?: string;
   client?: string;
   configPath?: string;
-  responsibleEmails?: string[];
+  responsibleContacts?: ResponsibleContact[];
 }
