@@ -16,18 +16,9 @@ Los documentos de diseño están numerados secuencialmente con 3 dígitos (`001`
   - Modelo de datos de Certificados y Notificaciones
   - Endpoints y sus especificaciones
   - Reglas de negocio
-  - Sistema de notificaciones por email
+  - Sistema de notificaciones por email (creación y expiración)
   - Validaciones y códigos de respuesta HTTP
 - **Cuándo consultarlo**: Antes de implementar cualquier endpoint, modelo o lógica de negocio relacionada con certificados
-
-#### [openapi.yaml](./docs/openapi.yaml)
-- **Tema**: Especificación OpenAPI 3.0 de la API
-- **Contenido**:
-  - Definición formal de todos los endpoints
-  - Schemas completos de request/response
-  - Ejemplos de uso
-  - Documentación para Swagger UI
-- **Cuándo consultarlo**: Para verificar contratos de API, generar clientes, o documentación
 
 #### [002_Testing.md](./docs/002_Testing.md)
 - **Tema**: Estrategia de testing y configuración de Vitest
@@ -38,6 +29,36 @@ Los documentos de diseño están numerados secuencialmente con 3 dígitos (`001`
   - Buenas prácticas
   - Ejemplos de tests unitarios e integración
 - **Cuándo consultarlo**: Antes de escribir tests o modificar la estrategia de testing
+
+#### [003_DatabaseImplementation.md](./docs/003_DatabaseImplementation.md)
+- **Tema**: Implementación de base de datos PostgreSQL
+- **Contenido**:
+  - Esquema de base de datos
+  - Sistema de migraciones
+  - Configuración de conexión
+  - Repositorios PostgreSQL
+- **Cuándo consultarlo**: Antes de modificar el esquema de BD o crear nuevas migraciones
+
+#### [004_EnvironmentConfiguration.md](./docs/004_EnvironmentConfiguration.md)
+- **Tema**: Configuración de variables de entorno
+- **Contenido**:
+  - Variables de entorno disponibles
+  - Configuración de PostgreSQL
+  - Configuración de SMTP
+  - Configuración del scheduler
+- **Cuándo consultarlo**: Antes de agregar nuevas variables de configuración
+
+#### [005_NotificationSystem.md](./docs/005_NotificationSystem.md)
+- **Tema**: Sistema de notificaciones automáticas por email
+- **Contenido**:
+  - Arquitectura del sistema de notificaciones
+  - Flujo de creación de certificados con email inmediato
+  - Flujo de notificaciones de expiración programadas (cron)
+  - Configuración de SMTP (Gmail, Outlook, genérico)
+  - Reglas de frecuencia (WARNING: 48h, EXPIRED: 24h)
+  - Formato de emails (creación, warning, expired)
+  - Troubleshooting y testing
+- **Cuándo consultarlo**: Antes de modificar el sistema de notificaciones, cambiar emails, o configurar SMTP
 
 ## 🛠️ Stack Tecnológico
 
@@ -64,28 +85,40 @@ src/
 ├── server.ts                 # Punto de entrada: startServer() async
 │
 ├── domain/                   # Capa de Dominio (Lógica de Negocio)
+│   ├── repositories/        # Interfaces de repositorios (puertos - Clean Architecture)
+│   │   ├── ICertificateRepository.ts    # Interface para persistencia de certificados
+│   │   └── INotificationRepository.ts   # Interface para persistencia de notificaciones
+│   │
+│   ├── services/            # Interfaces de servicios (puertos)
+│   │   ├── CertificateExpirationService.ts  # Cálculo de estados
+│   │   └── IEmailService.ts                 # Interface para envío de emails
+│   │
 │   └── usecases/            # Casos de uso (Application Services)
 │       ├── certificates/    # Casos de uso de certificados
-│       │   ├── CreateCertificateUseCase.ts
+│       │   ├── CreateCertificateUseCase.ts         # + Envío email creación
 │       │   ├── GetCertificatesUseCase.ts
 │       │   ├── GetCertificateByIdUseCase.ts
 │       │   ├── UpdateCertificateUseCase.ts
-│       │   ├── DeleteCertificateUseCase.ts
 │       │   └── UpdateCertificateStatusUseCase.ts
 │       │
 │       └── notifications/   # Casos de uso de notificaciones
 │           ├── CreateNotificationUseCase.ts
 │           ├── GetNotificationsUseCase.ts
-│           └── GetCertificateNotificationsUseCase.ts
+│           ├── GetCertificateNotificationsUseCase.ts
+│           └── SendCertificateNotificationsUseCase.ts  # Proceso automático
 │
 ├── infrastructure/           # Capa de Infraestructura
-│   ├── persistence/         # Repositorios (acceso a datos)
-│   │   ├── CertificateRepository.ts          # Interfaz + Implementaciones
-│   │   ├── InMemoryCertificateRepository.ts
-│   │   ├── PostgreSQLCertificateRepository.ts
-│   │   ├── NotificationRepository.ts         # Interfaz + Implementaciones
-│   │   ├── InMemoryNotificationRepository.ts
-│   │   └── PostgreSQLNotificationRepository.ts
+│   ├── messaging/           # Servicios de mensajería
+│   │   └── NodemailerEmailService.ts  # Implementación SMTP (IEmailService)
+│   │
+│   ├── scheduling/          # Programación de tareas
+│   │   └── NotificationSchedulerJob.ts  # Cron para notificaciones
+│   │
+│   ├── persistence/         # Repositorios (acceso a datos - Implementaciones)
+│   │   ├── CertificateRepository.ts          # Implementación InMemory
+│   │   ├── PostgresCertificateRepository.ts  # Implementación PostgreSQL
+│   │   ├── NotificationRepository.ts         # Implementación InMemory
+│   │   └── PostgresNotificationRepository.ts # Implementación PostgreSQL
 │   │
 │   ├── database/            # Configuración de base de datos
 │   │   ├── connection.ts    # Pool de conexiones
@@ -113,8 +146,15 @@ src/
 │   └── CertificateStatus.ts
 │
 └── tests/                   # Tests (separados del código)
-    ├── certificates.test.ts
-    └── notifications.test.ts
+    ├── integration/         # Tests de integración
+    │   ├── certificates.test.ts
+    │   └── notifications.test.ts
+    │
+    └── unit/                # Tests unitarios
+        ├── math.test.ts
+        ├── CertificateStatus.test.ts
+        ├── CertificateValidator.test.ts
+        └── SendCertificateNotificationsUseCase.test.ts
 ```
 
 ### Principios de la Arquitectura
@@ -278,6 +318,40 @@ HTTP Response
 3. **Separación de Concerns**: HTTP, lógica de negocio y datos están separados
 4. **Escalabilidad**: Fácil agregar nuevos casos de uso o cambiar persistencia
 5. **Reutilización**: `createApp()` sirve para tests, serverless, multiple servers, etc.
+
+### ⚠️ Clean Architecture - Dependency Rule
+
+**Regla de Oro**: Las dependencias siempre deben apuntar hacia adentro (hacia el dominio).
+
+```
+Infrastructure → Domain  ✅ (correcto)
+Domain → Infrastructure  ❌ (NUNCA)
+```
+
+**Implementación en este proyecto**:
+
+- ✅ **Interfaces en `domain/repositories/`**: Los contratos (ICertificateRepository, INotificationRepository) están en la capa de dominio
+- ✅ **Implementaciones en `infrastructure/persistence/`**: Las implementaciones concretas (PostgreSQL, InMemory) están en infraestructura
+- ✅ **UseCases importan desde domain**: Todos los casos de uso importan las interfaces desde `../../repositories/ICertificateRepository`
+- ✅ **Implementaciones importan desde domain**: Los repositorios de infraestructura importan las interfaces desde `../../domain/repositories/`
+
+**❌ Anti-patrón (corregido en refactoring del 2026-02-14)**:
+```typescript
+// INCORRECTO - Domain dependiendo de Infrastructure
+import { ICertificateRepository } from '../../../infrastructure/persistence/CertificateRepository';
+```
+
+**✅ Patrón correcto**:
+```typescript
+// CORRECTO - Domain dependiendo de Domain
+import { ICertificateRepository } from '../../repositories/ICertificateRepository';
+```
+
+Este patrón garantiza que:
+- El dominio no conoce detalles de implementación (PostgreSQL, InMemory, etc.)
+- Puedes cambiar la implementación sin modificar la lógica de negocio
+- Los tests pueden usar mocks fácilmente
+- Se cumple el principio de Inversión de Dependencias (DIP)
 
 ### Estructura de Carpetas (Anterior - Legacy)
 

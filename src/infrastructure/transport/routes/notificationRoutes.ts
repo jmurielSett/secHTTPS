@@ -1,8 +1,8 @@
 import { Router } from 'express';
+import { ICertificateRepository } from '../../../domain/repositories/ICertificateRepository';
+import { INotificationRepository } from '../../../domain/repositories/INotificationRepository';
 import { CreateNotificationUseCase } from '../../../domain/usecases/notifications/CreateNotificationUseCase';
 import { GetNotificationsUseCase } from '../../../domain/usecases/notifications/GetNotificationsUseCase';
-import { ICertificateRepository } from '../../persistence/CertificateRepository';
-import { INotificationRepository } from '../../persistence/NotificationRepository';
 import { NotificationController } from '../controllers/NotificationController';
 
 export function createNotificationRouter(

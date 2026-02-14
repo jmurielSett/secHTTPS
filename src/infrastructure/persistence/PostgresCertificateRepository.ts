@@ -1,9 +1,9 @@
 import { randomUUID } from 'node:crypto';
+import { ICertificateRepository } from '../../domain/repositories/ICertificateRepository';
 import { CertificateExpirationService } from '../../domain/services/CertificateExpirationService';
 import { GetCertificatesFilters } from '../../domain/usecases/certificates/GetCertificatesUseCase';
 import { Certificate, CertificateStatus } from '../../types/certificate';
 import { getPool } from '../database/connection';
-import { ICertificateRepository } from './CertificateRepository';
 
 export class PostgresCertificateRepository implements ICertificateRepository {
   

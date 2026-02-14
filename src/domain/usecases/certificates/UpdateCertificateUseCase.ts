@@ -1,6 +1,6 @@
-import { ICertificateRepository } from '../../../infrastructure/persistence/CertificateRepository';
 import { Certificate, CertificateStatus, UpdateCertificateDTO } from '../../../types/certificate';
 import { ErrorCode, NotFoundError, ValidationError } from '../../../types/errors';
+import { ICertificateRepository } from '../../repositories/ICertificateRepository';
 import { CertificateExpirationService } from '../../services/CertificateExpirationService';
 
 export class UpdateCertificateUseCase {

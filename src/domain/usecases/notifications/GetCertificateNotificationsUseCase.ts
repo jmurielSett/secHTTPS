@@ -1,7 +1,7 @@
-import { ICertificateRepository } from '../../../infrastructure/persistence/CertificateRepository';
-import { INotificationRepository } from '../../../infrastructure/persistence/NotificationRepository';
 import { ErrorCode, NotFoundError, ValidationError } from '../../../types/errors';
 import { Notification } from '../../../types/notification';
+import { ICertificateRepository } from '../../repositories/ICertificateRepository';
+import { INotificationRepository } from '../../repositories/INotificationRepository';
 
 export class GetCertificateNotificationsUseCase {
   constructor(

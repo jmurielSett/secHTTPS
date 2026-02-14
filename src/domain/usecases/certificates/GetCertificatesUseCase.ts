@@ -1,6 +1,6 @@
-import { ICertificateRepository } from '../../../infrastructure/persistence/CertificateRepository';
 import { Certificate, CertificateStatus } from '../../../types/certificate';
 import { ExpirationStatus } from '../../../types/shared';
+import { ICertificateRepository } from '../../repositories/ICertificateRepository';
 
 export interface GetCertificatesFilters {
   client?: string;
