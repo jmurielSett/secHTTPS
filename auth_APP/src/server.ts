@@ -17,8 +17,8 @@ const USE_POSTGRES = process.env.USE_POSTGRES === 'true';
     app.listen(PORT, () => {
       console.log(`✅ Auth Service running on http://localhost:${PORT}`);
       console.log(`📦 Using ${USE_POSTGRES ? 'PostgreSQL' : 'In-Memory'} repository`);
-      console.log(`🔐 JWT Access Token: ${process.env.JWT_ACCESS_EXPIRES_IN || JWT_CONFIG.ACCESS_EXPIRATION}`);
-      console.log(`🔐 JWT Refresh Token: ${process.env.JWT_REFRESH_EXPIRES_IN || JWT_CONFIG.REFRESH_EXPIRATION}`);
+      console.log(`🔐 JWT Access Token: ${JWT_CONFIG.ACCESS_EXPIRATION}`);
+      console.log(`🔐 JWT Refresh Token: ${JWT_CONFIG.REFRESH_EXPIRATION}`);
       console.log(`💾 Cache TTL: ${CACHE_CONFIG.TTL_SECONDS}s (${CACHE_CONFIG.TTL_SECONDS / 60} min)`);
     });
   } catch (error) {
