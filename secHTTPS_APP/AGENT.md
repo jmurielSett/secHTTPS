@@ -125,7 +125,13 @@ src/
 │   │   ├── migrator.ts      # Ejecutor de migraciones
 │   │   └── migrations/      # Scripts SQL de migraciones
 │   │
-│   └── transport/           # Capa HTTP (Express)
+│   ├── trpc/                # tRPC - API type-safe (alternativa moderna a REST)
+│   │   ├── trpc.ts          # Configuración base tRPC y contexto
+│   │   └── routers/         # Routers tRPC por dominio
+│   │       ├── index.ts             # App router (combina todos los routers)
+│   │       └── certificateRouter.ts # Endpoints de certificados
+│   │
+│   └── transport/           # Capa HTTP (Express REST - se mantiene por compatibilidad)
 │       ├── controllers/     # Controladores HTTP
 │       │   ├── CertificateController.ts
 │       │   └── NotificationController.ts
@@ -309,6 +315,152 @@ HTTP Request
 [Database] PostgreSQL / In-Memory
     ↓
 HTTP Response
+```
+
+### tRPC - API Type-Safe (Alternativa Moderna)
+
+Además del REST API tradicional, el proyecto expone los casos de uso mediante **tRPC** para el frontend React.
+
+#### Estructura tRPC
+
+```
+infrastructure/trpc/
+├── trpc.ts                      # Configuración base y contexto
+├── routers/
+│   ├── index.ts                 # AppRouter (combina todos)
+│   └── certificateRouter.ts     # Router de certificados
+```
+
+#### Configuración Base (trpc.ts)
+
+```typescript
+import { initTRPC } from '@trpc/server';
+
+export interface TRPCContext {
+  certificateRepository: ICertificateRepository;
+  notificationRepository: INotificationRepository;
+  // Futuro: userId, token para autenticación
+}
+
+const t = initTRPC.context<TRPCContext>().create();
+
+export const router = t.router;
+export const publicProcedure = t.procedure;
+```
+
+#### Router de Certificados (certificateRouter.ts)
+
+```typescript
+import { z } from 'zod';
+import { GetCertificatesUseCase } from '../../../domain/usecases/certificates/GetCertificatesUseCase';
+
+export const certificateRouter = router({
+  getCertificates: publicProcedure
+    .input(z.object({
+      client: z.string().optional(),
+      status: z.enum(['ACTIVE', 'DELETED']).optional()
+    }).optional())
+    .query(async ({ input, ctx }) => {
+      const useCase = new GetCertificatesUseCase(ctx.certificateRepository);
+      return await useCase.execute(input || {});
+    }),
+    
+  hello: publicProcedure
+    .input(z.object({ name: z.string().optional() }).optional())
+    .query(({ input }) => ({
+      message: `Hello ${input?.name || 'World'} from tRPC! 🚀`,
+      timestamp: new Date().toISOString()
+    }))
+});
+```
+
+#### Integración en app.ts
+
+```typescript
+import * as trpcExpress from '@trpc/server/adapters/express';
+import { appRouter } from './infrastructure/trpc/routers';
+
+// CORS para frontend
+app.use(cors({
+  origin: ['http://localhost:5173', 'http://localhost:5174'],
+  credentials: true
+}));
+
+// tRPC endpoint
+app.use('/trpc', trpcExpress.createExpressMiddleware({
+  router: appRouter,
+  createContext: (): TRPCContext => ({
+    certificateRepository,
+    notificationRepository
+  })
+}));
+
+// REST API (mantiene compatibilidad)
+app.use('/api/certif', createCertificateRouter(certificateRepository));
+```
+
+#### Cliente React (client/src/utils/trpc.ts)
+
+```typescript
+import { createTRPCReact } from '@trpc/react-query';
+import type { AppRouter } from '../../../src/infrastructure/trpc/routers';
+
+export const trpc = createTRPCReact<AppRouter>();
+
+export const trpcClient = trpc.createClient({
+  links: [
+    httpBatchLink({
+      url: 'http://localhost:3000/trpc',
+    }),
+  ],
+});
+```
+
+#### Uso en Componentes React
+
+```typescript
+function App() {
+  const { data, isLoading } = trpc.certificate.getCertificates.useQuery();
+  
+  if (isLoading) return <div>Loading...</div>;
+  
+  return (
+    <div>
+      <h1>Certificates: {data?.total}</h1>
+      {data?.certificates.map(cert => (
+        <div key={cert.id}>{cert.fileName}</div>
+      ))}
+    </div>
+  );
+}
+```
+
+#### Ventajas de tRPC vs REST
+
+1. **Type-Safety End-to-End**: Los tipos del backend se infieren automáticamente en el cliente
+2. **Autocompletado**: IntelliSense completo en el frontend
+3. **Sin Generadores de Código**: No necesita swagger-codegen ni similares
+4. **Validación con Zod**: Schema validation integrada
+5. **Menor Boilerplate**: No necesitas controllers separados
+6. **Batching Automático**: Múltiples queries en una sola petición HTTP
+
+#### ⚠️ Respeta Clean Architecture
+
+Aunque tRPC simplifica el código, **sigue usando los use cases del dominio**:
+
+```typescript
+// ✅ CORRECTO - Llama al use case
+getCertificates: publicProcedure
+  .query(async ({ ctx }) => {
+    const useCase = new GetCertificatesUseCase(ctx.certificateRepository);
+    return await useCase.execute({});
+  })
+
+// ❌ INCORRECTO - Acceso directo al repositorio (bypasea el dominio)
+getCertificates: publicProcedure
+  .query(async ({ ctx }) => {
+    return await ctx.certificateRepository.findAll(); // ❌ NO!
+  })
 ```
 
 ### Ventajas de Esta Arquitectura
