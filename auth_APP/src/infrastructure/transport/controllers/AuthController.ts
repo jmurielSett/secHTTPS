@@ -1,12 +1,18 @@
 import { NextFunction, Request, Response } from 'express';
-import { LoginUseCase, RefreshTokenUseCase, ValidateTokenUseCase } from '../../../domain/usecases';
+import {
+  LoginUseCase,
+  RefreshTokenUseCase,
+  RegisterUserUseCase,
+  ValidateTokenUseCase
+} from '../../../domain/usecases';
 import { Password, Token, Username } from '../../../domain/value-objects';
 
 export class AuthController {
   constructor(
     private readonly loginUseCase: LoginUseCase,
     private readonly refreshTokenUseCase: RefreshTokenUseCase,
-    private readonly validateTokenUseCase: ValidateTokenUseCase
+    private readonly validateTokenUseCase: ValidateTokenUseCase,
+    private readonly registerUserUseCase: RegisterUserUseCase
   ) {}
 
   /**
@@ -156,7 +162,54 @@ export class AuthController {
 
       res.status(200).json({
         valid: true,
-        user: result
+        user: {
+          id: result.userId,
+          username: result.username,
+          role: result.roles && result.roles.length > 0 ? result.roles[0] : 'user',
+          applicationName: result.applicationName,
+          applications: result.applications
+        }
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
+   * POST /auth/register
+   * Registra un nuevo usuario (público)
+   * El usuario se crea sin roles asignados (admin debe asignarlos después)
+   */
+  async register(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const { username, email, password } = req.body;
+
+      // Validar que los campos obligatorios están presentes
+      if (!username || !email || !password) {
+        res.status(400).json({
+          error: {
+            code: 'VALIDATION_ERROR',
+            message: 'Username, email, and password are required'
+          }
+        });
+        return;
+      }
+
+      // Ejecutar caso de uso de registro
+      const user = await this.registerUserUseCase.execute({
+        username,
+        email,
+        password
+      });
+
+      res.status(201).json({
+        message: 'User registered successfully',
+        user: {
+          id: user.id,
+          username: user.username,
+          email: user.email,
+          createdAt: user.createdAt
+        }
       });
     } catch (error) {
       next(error);

@@ -1,3 +1,23 @@
+-- Migration: 001_create_certificates_table
+-- Description: Creates certificates and certificate_responsible_contacts tables
+-- Database: PostgreSQL
+
+-- ===========================================================================
+-- 0. CREATE SCHEMA
+-- ===========================================================================
+
+-- Create sechttps schema if it doesn't exist
+CREATE SCHEMA IF NOT EXISTS sechttps;
+
+-- Set search_path to sechttps schema for this migration
+SET search_path TO sechttps, public;
+
+COMMENT ON SCHEMA sechttps IS 'SecHTTPS certificate management system schema';
+
+-- ===========================================================================
+-- 1. CREATE TABLES
+-- ===========================================================================
+
 -- Create certificates table
 CREATE TABLE IF NOT EXISTS certificates (
   id VARCHAR(36) PRIMARY KEY,

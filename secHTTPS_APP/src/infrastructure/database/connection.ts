@@ -28,6 +28,9 @@ const getConfig = (): PoolConfig => {
     max: 10,
     idleTimeoutMillis: 30000,
     connectionTimeoutMillis: 2000,
+    // Redundant safeguard: user already has search_path configured via ALTER USER in migration 000
+    // This ensures it's set even if database config is changed manually
+    options: '-c search_path=sechttps,public'
   };
 };
 
@@ -43,8 +46,13 @@ export const connectDatabase = async (): Promise<void> => {
   try {
     const currentPool = getPool();
     const client = await currentPool.connect();
-    client.release();
+    
+    // Verify search_path is correctly configured
+    const result = await client.query('SHOW search_path');
     console.log('✅ Database connected successfully');
+    console.log(`   Search path: ${result.rows[0].search_path}`);
+    
+    client.release();
   } catch (error) {
     console.error('❌ Database connection failed:', error);
     throw error;

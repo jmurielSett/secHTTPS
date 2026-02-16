@@ -1,5 +1,5 @@
 import dotenv from 'dotenv';
-import { closeDatabaseConnection, connectDatabase } from '../infrastructure/database/connection';
+import { closeDatabaseConnection } from '../infrastructure/database/connection';
 import { DatabaseMigrator } from '../infrastructure/database/migrator';
 
 // Load environment variables from .env
@@ -9,7 +9,10 @@ void (async () => {
   try {
     console.log('🚀 Starting database migrations...');
     
-    await connectDatabase();
+    // Note: We don't call connectDatabase() here because:
+    // - Migration 000 needs to connect to postgres (not sechttps_db)
+    // - Migration 001+ needs to connect to sechttps_db (which doesn't exist yet)
+    // DatabaseMigrator handles connections internally per migration type
     
     const migrator = new DatabaseMigrator();
     await migrator.runMigrations();

@@ -29,6 +29,7 @@ export class ValidateTokenUseCase {
     return {
       userId: payload.userId,
       username: payload.username,
+      authProvider: payload.authProvider,
       applicationName: payload.applicationName,
       roles: payload.roles,
       applications: payload.applications,

@@ -56,13 +56,23 @@ export async function createApp(usePostgres: boolean = false): Promise<AppContex
   // Create repository instances based on configuration
   let userRepository: IUserRepository;
   
+  console.log(`🔍 DEBUG: usePostgres=${usePostgres}, pool=${pool ? 'defined' : 'undefined'}`);
+  
   if (usePostgres && pool) {
+    console.log('🔧 Using PostgreSQL repository and seeding admin user...');
     userRepository = new PostgresUserRepository(pool);
     
     // Seed admin user in PostgreSQL with RBAC roles (if not exists)
-    await seedAdminUser(pool);
+    try {
+      await seedAdminUser(pool);
+      console.log('✅ PostgreSQL admin user seed completed');
+    } catch (error) {
+      console.error('❌ Error seeding admin user:', error);
+      throw error;
+    }
     
   } else {
+    console.log('🔧 Using In-Memory repository...');
     userRepository = new InMemoryUserRepository();
     
     // Seed admin user in memory for testing
@@ -86,12 +96,12 @@ export async function createApp(usePostgres: boolean = false): Promise<AppContex
   }
   
   // Mount routes
-  app.use('/auth', createAuthRouter(userRepository, tokenService, passwordHasher));
+  app.use('/auth', createAuthRouter(userRepository, tokenService, passwordHasher, pool));
   
   // Mount admin routes (only for PostgreSQL with RBAC support)
   if (usePostgres && pool) {
     const verifyAccessUseCase = new VerifyUserAccessUseCase(userRepository, cacheService);
-    app.use('/admin', createAdminRouter(pool, verifyAccessUseCase));
+    app.use('/admin', createAdminRouter(pool, verifyAccessUseCase, userRepository, passwordHasher));
     console.log('✓ Admin routes mounted at /admin');
   }
   

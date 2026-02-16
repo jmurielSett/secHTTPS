@@ -31,20 +31,22 @@ export class InMemoryUserRepository implements IUserRepository {
   }
 
   async create(user: User): Promise<User> {
-    if (this.users.has(user.id)) {
+    const userId = String(user.id);
+    if (this.users.has(userId)) {
       throw new Error(`User with id ${user.id} already exists`);
     }
 
-    this.users.set(user.id, { ...user });
+    this.users.set(userId, { ...user });
     return { ...user };
   }
 
   async update(user: User): Promise<User> {
-    if (!this.users.has(user.id)) {
+    const userId = String(user.id);
+    if (!this.users.has(userId)) {
       throw new Error(`User with id ${user.id} not found`);
     }
 
-    this.users.set(user.id, { ...user });
+    this.users.set(userId, { ...user });
     return { ...user };
   }
 
@@ -60,7 +62,7 @@ export class InMemoryUserRepository implements IUserRepository {
     // For in-memory testing, return the user's role from the legacy field
     // In real PostgreSQL implementation, this queries user_application_roles table
     const user = this.users.get(userId);
-    if (!user) {
+    if (!user?.role) {
       return [];
     }
     // Return role as array (converting from legacy single role to RBAC multiple roles)
@@ -70,7 +72,7 @@ export class InMemoryUserRepository implements IUserRepository {
   async getAllUserRoles(userId: string): Promise<ApplicationRole[]> {
     // For in-memory testing, return a multi-app structure with the user's legacy role
     const user = this.users.get(userId);
-    if (!user) {
+    if (!user?.role) {
       return [];
     }
     // Mock structure: user has same role in both apps for testing

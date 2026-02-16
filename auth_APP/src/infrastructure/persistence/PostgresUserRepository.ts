@@ -1,6 +1,6 @@
 import { Pool } from 'pg';
 import { IUserRepository } from '../../domain/repositories/IUserRepository';
-import { ApplicationRole, User, UserRole } from '../../types/user';
+import { ApplicationRole, User } from '../../types/user';
 
 /**
  * PostgreSQL User Repository
@@ -44,19 +44,12 @@ export class PostgresUserRepository implements IUserRepository {
 
   async create(user: User): Promise<User> {
     const query = `
-      INSERT INTO users (id, username, email, password_hash, role, created_at)
-      VALUES ($1, $2, $3, $4, $5, $6)
+      INSERT INTO users (username, email, password_hash, created_at)
+      VALUES ($1, $2, $3, $4)
       RETURNING *
     `;
 
-    const values = [
-      user.id,
-      user.username,
-      user.email,
-      user.passwordHash,
-      user.role,
-      user.createdAt
-    ];
+    const values = [user.username, user.email, user.passwordHash, user.createdAt];
 
     const result = await this.pool.query(query, values);
     return this.mapRowToUser(result.rows[0]);
@@ -65,18 +58,12 @@ export class PostgresUserRepository implements IUserRepository {
   async update(user: User): Promise<User> {
     const query = `
       UPDATE users
-      SET username = $2, email = $3, password_hash = $4, role = $5
+      SET username = $2, email = $3, password_hash = $4
       WHERE id = $1
       RETURNING *
     `;
 
-    const values = [
-      user.id,
-      user.username,
-      user.email,
-      user.passwordHash,
-      user.role
-    ];
+    const values = [user.id, user.username, user.email, user.passwordHash];
 
     const result = await this.pool.query(query, values);
 
@@ -161,7 +148,6 @@ export class PostgresUserRepository implements IUserRepository {
       username: row.username,
       email: row.email,
       passwordHash: row.password_hash,
-      role: row.role as UserRole,
       createdAt: row.created_at.toISOString()
     };
   }

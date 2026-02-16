@@ -10,15 +10,14 @@ async function resetDatabase() {
     
     await connectDatabase();
     
-    // Drop all tables in reverse order (due to foreign key constraints)
-    await getPool().query('DROP TABLE IF EXISTS notification_recipient_emails CASCADE;');
-    await getPool().query('DROP TABLE IF EXISTS notifications CASCADE;');
-    await getPool().query('DROP TABLE IF EXISTS certificate_responsible_contacts CASCADE;');
-    await getPool().query('DROP TABLE IF EXISTS certificates CASCADE;');
-    await getPool().query('DROP TABLE IF EXISTS migrations CASCADE;');
+    // Drop auth schema with CASCADE (drops all tables, indexes, etc.)
+    await getPool().query('DROP SCHEMA IF EXISTS auth CASCADE;');
+    
+    // Drop migrations table if it exists in public schema
+    await getPool().query('DROP TABLE IF EXISTS public.migrations CASCADE;');
     
     console.log('✅ Database reset completed successfully');
-    console.log('💡 Run "npm run db:migrate" to recreate the schema');
+    console.log('💡 Run "npm run db:migrate" to recreate the schema and tables');
   } catch (error) {
     console.error('❌ Database reset failed:', error);
     process.exit(1);
@@ -27,4 +26,5 @@ async function resetDatabase() {
   }
 }
 
+// eslint-disable-next-line @typescript-eslint/no-floating-promises
 resetDatabase();

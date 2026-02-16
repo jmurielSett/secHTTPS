@@ -40,6 +40,7 @@ export class JWTService implements ITokenService {
    * @param applicationName - Optional: application name for single-app token
    * @param roles - Optional: roles for single app
    * @param applications - Optional: all apps with roles for multi-app token
+   * @param authProvider - Optional: authentication provider used (DATABASE, ldap://..., etc.)
    * @returns Token pair (access + refresh)
    */
   generateTokenPair(
@@ -47,13 +48,14 @@ export class JWTService implements ITokenService {
     username: string, 
     applicationName?: string,
     roles?: string[],
-    applications?: ApplicationRole[]
+    applications?: ApplicationRole[],
+    authProvider?: string
   ): TokenPair {
     const accessToken = this.generateAccessToken(
-      userId, username, applicationName, roles, applications
+      userId, username, applicationName, roles, applications, authProvider
     );
     const refreshToken = this.generateRefreshToken(
-      userId, username, applicationName, roles, applications
+      userId, username, applicationName, roles, applications, authProvider
     );
 
     return { accessToken, refreshToken };
@@ -67,13 +69,18 @@ export class JWTService implements ITokenService {
     username: string, 
     applicationName?: string,
     roles?: string[],
-    applications?: ApplicationRole[]
+    applications?: ApplicationRole[],
+    authProvider?: string
   ): string {
     const payload: Omit<TokenPayload, 'iat' | 'exp'> = {
       userId,
       username,
       type: 'access'
     };
+
+    if (authProvider) {
+      payload.authProvider = authProvider;
+    }
 
     // Single-app token
     if (applicationName && roles) {
@@ -92,7 +99,7 @@ export class JWTService implements ITokenService {
     return jwt.sign(payload, this.accessSecret, {
       expiresIn: this.accessExpiresIn,
       issuer: 'auth-service',
-      audience: applicationName || 'all-apps'
+      audience: 'sechttps-api'
     } as jwt.SignOptions);
   }
 
@@ -104,13 +111,18 @@ export class JWTService implements ITokenService {
     username: string, 
     applicationName?: string,
     roles?: string[],
-    applications?: ApplicationRole[]
+    applications?: ApplicationRole[],
+    authProvider?: string
   ): string {
     const payload: Omit<TokenPayload, 'iat' | 'exp'> = {
       userId,
       username,
       type: 'refresh'
     };
+
+    if (authProvider) {
+      payload.authProvider = authProvider;
+    }
 
     // Single-app token
     if (applicationName && roles) {
@@ -129,7 +141,7 @@ export class JWTService implements ITokenService {
     return jwt.sign(payload, this.refreshSecret, {
       expiresIn: this.refreshExpiresIn,
       issuer: 'auth-service',
-      audience: applicationName || 'all-apps'
+      audience: 'sechttps-api'
     } as jwt.SignOptions);
   }
 

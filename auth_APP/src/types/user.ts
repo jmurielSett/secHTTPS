@@ -1,12 +1,14 @@
+
 /**
  * User domain entity
  */
 export interface User {
-  id: string;
+  id: string | number; // SERIAL (integer) in DB, but can be string in some contexts
   username: string;
   email: string;
   passwordHash: string;
-  role: UserRole;
+  role?: UserRole; // Optional: legacy field, not stored in DB (use user_application_roles instead)
+  authProvider?: string; // Authentication provider used (DATABASE, ldap://..., etc.)
   createdAt: string;
 }
 
@@ -59,6 +61,7 @@ export interface ApplicationRole {
 export interface TokenPayload {
   userId: string;
   username: string;
+  authProvider?: string; // Authentication provider used (DATABASE, ldap://..., etc.)
   applicationName?: string; // Single app (if specified in login)
   roles?: string[]; // Roles for single app
   applications?: ApplicationRole[]; // All apps with roles (if no app specified)
@@ -81,6 +84,7 @@ export interface UserPublic {
   id: string;
   username: string;
   role: string; // Legacy field for backward compatibility
+  authProvider?: string; // Authentication provider used (DATABASE, ldap://..., etc.)
 }
 
 /**
@@ -89,6 +93,7 @@ export interface UserPublic {
 export interface ValidatedToken {
   userId: string;
   username: string;
+  authProvider?: string; // Authentication provider used (DATABASE, ldap://..., etc.)
   // Single-app token
   applicationName?: string;
   roles?: string[];

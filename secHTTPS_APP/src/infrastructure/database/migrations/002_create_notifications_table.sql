@@ -1,3 +1,10 @@
+-- Migration: 002_create_notifications_table
+-- Description: Creates notifications and notification_recipient_emails tables
+-- Database: PostgreSQL
+
+-- Set search_path to sechttps schema
+SET search_path TO sechttps, public;
+
 -- Create notifications table
 CREATE TABLE IF NOT EXISTS notifications (
   id VARCHAR(36) PRIMARY KEY,

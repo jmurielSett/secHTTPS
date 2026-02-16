@@ -10,12 +10,12 @@ async function resetDatabase() {
     
     await connectDatabase();
     
-    // Drop all tables in reverse order (due to foreign key constraints)
-    await getPool().query('DROP TABLE IF EXISTS users CASCADE;');
-    await getPool().query('DROP TABLE IF EXISTS migrations CASCADE;');
+    // Drop auth schema with CASCADE (drops all tables, indexes, etc.)
+    // This will drop auth.migrations table as well since it's in the auth schema
+    await getPool().query('DROP SCHEMA IF EXISTS auth CASCADE;');
     
     console.log('✅ Database reset completed successfully');
-    console.log('💡 Run "npm run db:migrate" to recreate the schema');
+    console.log('💡 Run "npm run db:migrate" to recreate the schema and tables');
   } catch (error) {
     console.error('❌ Database reset failed:', error);
     process.exit(1);

@@ -12,14 +12,16 @@ export interface ITokenService {
    * @param applicationName - Optional: application name for single-app token
    * @param roles - Optional: roles for single app (required if applicationName provided)
    * @param applications - Optional: all apps with roles for multi-app token (used if applicationName not provided)
+   * @param authProvider - Optional: authentication provider used (DATABASE, ldap://..., etc.)
    * @returns Token pair (access + refresh)
    */
   generateTokenPair(
-    userId: string, 
-    username: string, 
+    userId: string,
+    username: string,
     applicationName?: string,
     roles?: string[],
-    applications?: ApplicationRole[]
+    applications?: ApplicationRole[],
+    authProvider?: string
   ): TokenPair;
 
   /**

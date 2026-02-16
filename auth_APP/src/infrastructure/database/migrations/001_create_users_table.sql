@@ -4,6 +4,18 @@
 -- Database: PostgreSQL (portable to MySQL, Oracle, SQL Server with minor changes)
 
 -- ===========================================================================
+-- 0. CREATE SCHEMA
+-- ===========================================================================
+
+-- Create auth schema if it doesn't exist
+CREATE SCHEMA IF NOT EXISTS auth;
+
+-- Set search_path to auth schema for this migration
+SET search_path TO auth, public;
+
+COMMENT ON SCHEMA auth IS 'Authentication and authorization system schema';
+
+-- ===========================================================================
 -- 1. CREATE TABLES
 -- ===========================================================================
 
@@ -13,11 +25,15 @@ CREATE TABLE IF NOT EXISTS applications (
   name VARCHAR(100) NOT NULL UNIQUE,
   description VARCHAR(500),
   is_active BOOLEAN DEFAULT TRUE,
+  allow_ldap_sync BOOLEAN DEFAULT FALSE,
+  ldap_default_role VARCHAR(50) DEFAULT NULL,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
 COMMENT ON TABLE applications IS 'Applications registered in the auth system';
 COMMENT ON COLUMN applications.name IS 'Unique application identifier (e.g., secHTTPS_APP)';
+COMMENT ON COLUMN applications.allow_ldap_sync IS 'Allow automatic creation of LDAP users for this application';
+COMMENT ON COLUMN applications.ldap_default_role IS 'Default role name to assign to new LDAP users (NULL = no role assigned)';
 
 -- Users without hardcoded role
 CREATE TABLE IF NOT EXISTS users (
@@ -105,9 +121,9 @@ CREATE INDEX IF NOT EXISTS idx_user_roles_app ON user_application_roles(applicat
 -- 3. SEED DATA - Applications
 -- ===========================================================================
 
-INSERT INTO applications (name, description) VALUES
-  ('secHTTPS_APP', 'Certificate Management System'),
-  ('auth_APP', 'Authentication and Authorization Service')
+INSERT INTO applications (name, description, allow_ldap_sync, ldap_default_role) VALUES
+  ('secHTTPS_APP', 'Certificate Management System', TRUE, 'viewer'),
+  ('auth_APP', 'Authentication and Authorization Service', FALSE, NULL)
 ON CONFLICT (name) DO NOTHING;
 
 -- ===========================================================================
