@@ -1,0 +1,2 @@
+export { seedAdminUser } from './adminUserSeed';
+
