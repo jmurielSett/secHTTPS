@@ -1,7 +1,7 @@
-
 import { IApplicationRepository } from '../../domain/repositories/IApplicationRepository';
 import { IUserRepository } from '../../domain/repositories/IUserRepository';
 import { LoginDTO, LoginResponse } from '../../types/user';
+import { authLog, logWarn } from '../../utils/logger';
 import { AuthenticationResult, IAuthenticationProvider } from '../services/IAuthenticationProvider';
 import { IPasswordHasher } from '../services/IPasswordHasher';
 import { ITokenService } from '../services/ITokenService';
@@ -24,178 +24,32 @@ export class LoginUseCase {
   ) {}
 
   async execute(loginDto: LoginDTO): Promise<LoginResponse> {
-    console.log('\n' + '='.repeat(80));
-    console.log(`[Auth] 🔐 LOGIN ATTEMPT`);
-    console.log(`[Auth] User: ${loginDto.username}`);
-    console.log(`[Auth] Application: ${loginDto.applicationName || 'ALL (multi-app token)'}`);
-    console.log(`[Auth] Available providers: ${this.authProviders.map(p => p.name).join(', ')}`);
-    console.log('='.repeat(80) + '\n');
+    authLog(`[Auth] 🔐 Login attempt: ${loginDto.username} → ${loginDto.applicationName || 'multi-app'}`);
 
-    let userId: string | undefined;
-    let username: string = loginDto.username;
-    let authSuccess = false;
-    let authResult: AuthenticationResult | undefined;
-    let providerName: string = 'UNKNOWN';
+    // 1. Authenticate user with available providers
+    const authContext = await this.authenticateWithProviders(loginDto);
+    authLog(`[Auth] ✅ Authenticated via ${authContext.providerName}`);
 
-    // 1. Try authentication providers in order (LDAP first, then Database)
-    console.log('[Auth] 🔍 PHASE 1: Authentication Provider Chain');
-    for (const provider of this.authProviders) {
-      // Skip unavailable providers
-      const isAvailable = await provider.isAvailable();
-      if (!isAvailable) {
-        console.log(`[Auth]   ⏭️  Provider ${provider.name} is not available, skipping...`);
-        continue;
-      }
-
-      console.log(`[Auth]   🔑 Attempting authentication with provider: ${provider.name}`);
-      
-      const result = await provider.authenticate(loginDto.username, loginDto.password);
-      
-      if (result.success) {
-        console.log(`[Auth]   ✅ Authentication successful with provider: ${provider.name}`);
-        userId = result.userId;
-        username = result.username || loginDto.username;
-        authSuccess = true;
-        authResult = result;
-        providerName = provider.name;
-        break;
-      } else {
-        console.log(`[Auth]   ❌ Authentication failed with ${provider.name}: ${result.error}`);
-      }
-    }
-
-    if (!authSuccess || !userId) {
-      console.log('[Auth] ❌ All authentication providers failed\n');
-      throw new Error('Invalid credentials');
-    }
-
-    console.log(`[Auth] ✅ Provider '${providerName}' authenticated user successfully\n`);
-
-    // Use providerDetails (e.g., 'DATABASE' or 'server_ldap_xxx') instead of generic provider name
-    const authProviderValue = authResult?.providerDetails || providerName;
-    const authProvider = AuthProvider.fromString(authProviderValue);
+    const authProvider = AuthProvider.fromString(authContext.authProviderValue);
 
     // 2. Ensure user exists in database (for role management)
-    console.log('[Auth] 🔍 PHASE 2: Database User Verification');
-    let user = await this.userRepository.findByUsername(username);
+    const user = await this.ensureUserInDatabase(
+      authContext.username,
+      authProvider,
+      authContext.authResult,
+      loginDto.applicationName
+    );
     
-    if (!user) {
-      console.log('[Auth]   ⚠️  User not found in database');
-      // User authenticated via external provider but not in DB
-      // Check if application allows LDAP sync (or use global fallback)
-      const shouldCreateUser = await this.shouldCreateLDAPUser(loginDto.applicationName);
-      
-      if (shouldCreateUser) {
-        console.log(`[Auth]   ✅ Application allows LDAP sync, creating user: ${username}`);
-        user = await this.createLDAPUser(authResult!, authProvider.value, loginDto.applicationName);
-        if (user) {
-          console.log(`[Auth]   ✅ User created with ID: ${user.id}`);
-        }
-      } else {
-        console.log(`[Auth]   ❌ Application does not allow LDAP sync\n`);
-        throw new Error(`User authenticated but not authorized for application '${loginDto.applicationName || 'any'}'. Please contact administrator.`);
-      }
-    } else {
-      console.log(`[Auth]   ✅ User found in database (ID: ${user.id})`);
-      
-      // If authenticated via LDAP and has no roles, try to assign default role
-      if (authProvider.isLdap() && loginDto.applicationName && this.applicationRepository && this.assignRoleUseCase) {
-        const roles = await this.userRepository.getUserRolesByApplication(
-          String(user.id),
-          loginDto.applicationName
-        );
-        
-        if (roles.length === 0) {
-          console.log(`[Auth]   ⚠️  LDAP user has no roles, checking default role...`);
-          const appConfig = await this.applicationRepository.getApplicationLdapConfig(loginDto.applicationName);
-          
-          if (appConfig?.allowLdapSync && appConfig?.ldapDefaultRole) {
-            try {
-              await this.assignRoleUseCase.execute({
-                userId: String(user.id),
-                applicationName: loginDto.applicationName,
-                roleName: appConfig.ldapDefaultRole
-                // grantedBy is omitted for system-granted roles (will insert NULL)
-              });
-              console.log(`[Auth]   ✅ Assigned default role '${appConfig.ldapDefaultRole}' to LDAP user`);
-            } catch (error) {
-              console.warn(`[Auth]   ⚠️  Failed to assign default role: ${error instanceof Error ? error.message : 'Unknown error'}`);
-            }
-          }
-        }
-      }
-    }
-
-    // TypeScript null safety check
-    if (!user) {
-      throw new Error('Failed to retrieve or create user in database');
-    }
-    
-    // Set authProvider in memory only (not persisted to DB, used for JWT)
     user.authProvider = authProvider.value;
-    console.log(`[Auth]   📝 Auth provider set to: ${authProvider.value}\n`);
 
-    let tokenPair;
+    // 3. Generate token pair (single-app or multi-app)
+    const tokenPair = await this.generateTokenPair(
+      user,
+      authProvider.value,
+      loginDto.applicationName
+    );
 
-    // 3. Single-app token (if applicationName provided)
-    console.log('[Auth] 🔍 PHASE 3: Authorization & Token Generation');
-    if (loginDto.applicationName) {
-      console.log(`[Auth]   🔐 Generating single-app token for: ${loginDto.applicationName}`);
-      const roles = await this.userRepository.getUserRolesByApplication(
-        String(user.id),
-        loginDto.applicationName
-      );
-
-      if (roles.length === 0) {
-        console.log(`[Auth]   ❌ User has no roles in application ${loginDto.applicationName}\n`);
-        throw new Error(`User does not have access to application: ${loginDto.applicationName}`);
-      }
-
-      console.log(`[Auth]   ✅ User roles in ${loginDto.applicationName}: ${roles.join(', ')}`);
-      
-      // Generate token pair for specific application
-      tokenPair = this.tokenService.generateTokenPair(
-        String(user.id),
-        user.username,
-        loginDto.applicationName,
-        roles,
-        undefined,
-        authProvider.value
-      );
-    } 
-    // 4. Multi-app token (if no applicationName provided)
-    else {
-      console.log('[Auth]   🔐 Generating multi-app token');
-      const applications = await this.userRepository.getAllUserRoles(String(user.id));
-
-      if (applications.length === 0) {
-        console.log('[Auth]   ❌ User has no roles in any application\n');
-        throw new Error('User does not have access to any application');
-      }
-
-      console.log(`[Auth]   ✅ User has access to ${applications.length} application(s)`);
-      applications.forEach(app => {
-        console.log(`[Auth]      - ${app.applicationName}: [${app.roles.join(', ')}]`);
-      });
-
-      // Generate token pair with all applications
-      tokenPair = this.tokenService.generateTokenPair(
-        String(user.id),
-        user.username,
-        undefined,
-        undefined,
-        applications,
-        authProvider.value
-      );
-    }
-
-    console.log('[Auth]   ✅ JWT tokens generated successfully');
-    console.log(`[Auth]   📝 Token includes authProvider: ${authProvider.value}`);
-    console.log('\n' + '='.repeat(80));
-    console.log('[Auth] ✅ LOGIN SUCCESSFUL');
-    console.log('='.repeat(80) + '\n');
-
-    // 5. Return response
+    // 4. Return response
     return {
       accessToken: tokenPair.accessToken,
       refreshToken: tokenPair.refreshToken,
@@ -209,18 +63,182 @@ export class LoginUseCase {
   }
 
   /**
+   * Authenticates user using available authentication providers
+   */
+  private async authenticateWithProviders(loginDto: LoginDTO): Promise<{
+    username: string;
+    authResult: AuthenticationResult;
+    providerName: string;
+    authProviderValue: string;
+  }> {
+    for (const provider of this.authProviders) {
+      const isAvailable = await provider.isAvailable();
+      if (!isAvailable) continue;
+      
+      const result = await provider.authenticate(loginDto.username, loginDto.password);
+      
+      if (result.success) {
+        const username = result.username || loginDto.username;
+        const authProviderValue = result.providerDetails || provider.name;
+        
+        return {
+          username,
+          authResult: result,
+          providerName: provider.name,
+          authProviderValue
+        };
+      }
+    }
+
+    throw new Error('Invalid credentials');
+  }
+
+  /**
+   * Ensures user exists in database, creating if necessary or assigning default role
+   */
+  private async ensureUserInDatabase(
+    username: string,
+    authProvider: AuthProvider,
+    authResult: AuthenticationResult,
+    applicationName?: string
+  ): Promise<any> {
+    let user = await this.userRepository.findByUsername(username);
+    
+    if (user) {
+      await this.ensureDefaultRoleForLdapUser(user, authProvider, applicationName);
+      return user;
+    }
+
+    // User not found - create if allowed
+    const shouldCreateUser = await this.shouldCreateLDAPUser(applicationName);
+    
+    if (!shouldCreateUser) {
+      throw new Error(`User authenticated but not authorized for application '${applicationName || 'any'}'. Please contact administrator.`);
+    }
+
+    user = await this.createLDAPUser(authResult, authProvider.value, applicationName);
+    authLog(`[Auth] ✅ User created in DB: ${username}`);
+    
+    return user;
+  }
+
+  /**
+   * Assigns default role to LDAP users without roles
+   */
+  private async ensureDefaultRoleForLdapUser(
+    user: any,
+    authProvider: AuthProvider,
+    applicationName?: string
+  ): Promise<void> {
+    if (!authProvider.isLdap() || !applicationName || !this.applicationRepository || !this.assignRoleUseCase) {
+      return;
+    }
+
+    const roles = await this.userRepository.getUserRolesByApplication(
+      String(user.id),
+      applicationName
+    );
+    
+    if (roles.length > 0) return;
+
+    const appConfig = await this.applicationRepository.getApplicationLdapConfig(applicationName);
+    
+    if (!appConfig?.allowLdapSync || !appConfig?.ldapDefaultRole) return;
+
+    try {
+      await this.assignRoleUseCase.execute({
+        userId: String(user.id),
+        applicationName: applicationName,
+        roleName: appConfig.ldapDefaultRole
+      });
+      authLog(`[Auth] ✅ Assigned default role: ${appConfig.ldapDefaultRole}`);
+    } catch (error) {
+      logWarn(`[Auth] Failed to assign default role: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
+  }
+
+  /**
+   * Generates token pair for single-app or multi-app access
+   */
+  private async generateTokenPair(
+    user: any,
+    authProviderValue: string,
+    applicationName?: string
+  ): Promise<{ accessToken: string; refreshToken: string }> {
+    if (applicationName) {
+      return await this.generateSingleAppToken(user, authProviderValue, applicationName);
+    }
+    
+    return await this.generateMultiAppToken(user, authProviderValue);
+  }
+
+  /**
+   * Generates token for single application
+   */
+  private async generateSingleAppToken(
+    user: any,
+    authProviderValue: string,
+    applicationName: string
+  ): Promise<{ accessToken: string; refreshToken: string }> {
+    const roles = await this.userRepository.getUserRolesByApplication(
+      String(user.id),
+      applicationName
+    );
+
+    if (roles.length === 0) {
+      throw new Error(`User does not have access to application: ${applicationName}`);
+    }
+
+    authLog(`[Auth] ✅ Token generated for ${applicationName}: [${roles.join(', ')}]`);
+    
+    return this.tokenService.generateTokenPair(
+      String(user.id),
+      user.username,
+      applicationName,
+      roles,
+      undefined,
+      authProviderValue
+    );
+  }
+
+  /**
+   * Generates token for multiple applications
+   */
+  private async generateMultiAppToken(
+    user: any,
+    authProviderValue: string
+  ): Promise<{ accessToken: string; refreshToken: string }> {
+    const applications = await this.userRepository.getAllUserRoles(String(user.id));
+
+    if (applications.length === 0) {
+      throw new Error('User does not have access to any application');
+    }
+
+    authLog(`[Auth] ✅ Multi-app token generated: ${applications.length} app(s)`);
+
+    return this.tokenService.generateTokenPair(
+      String(user.id),
+      user.username,
+      undefined,
+      undefined,
+      applications,
+      authProviderValue
+    );
+  }
+
+  /**
    * Determines if LDAP user should be auto-created based on application configuration
    */
   private async shouldCreateLDAPUser(applicationName?: string): Promise<boolean> {
     // Application name is required for LDAP sync
     if (!applicationName) {
-      console.warn('[Auth] No application specified, denying LDAP user creation');
+      logWarn('[Auth] No application specified, denying LDAP user creation');
       return false;
     }
 
     // Application repository is required
     if (!this.applicationRepository) {
-      console.warn('[Auth] No application repository available, denying LDAP user creation');
+      logWarn('[Auth] No application repository available, denying LDAP user creation');
       return false;
     }
 
@@ -228,7 +246,7 @@ export class LoginUseCase {
     const appConfig = await this.applicationRepository.getApplicationLdapConfig(applicationName);
     
     if (!appConfig) {
-      console.warn(`[Auth] Application '${applicationName}' not found, denying LDAP user creation`);
+      logWarn(`[Auth] Application '${applicationName}' not found, denying LDAP user creation`);
       return false;
     }
 
@@ -251,12 +269,10 @@ export class LoginUseCase {
     const newUser = await this.userRepository.create({
       username,
       email,
-      passwordHash: await this.passwordHasher.hash(`LDAP_USER_${Date.now()}`), // Random hash
+      passwordHash: await this.passwordHasher.hash(`LDAP_USER_${Date.now()}`),
       authProvider: providerValue,
       createdAt: new Date().toISOString()
     } as any);
-
-    console.log(`[Auth] Created user ${username} in database with ID: ${newUser.id}`);
 
     // Assign default role if configured for the application
     if (applicationName && this.applicationRepository && this.assignRoleUseCase) {
@@ -268,15 +284,10 @@ export class LoginUseCase {
             userId: String(newUser.id),
             applicationName: applicationName,
             roleName: appConfig.ldapDefaultRole
-            // grantedBy is omitted for system-granted roles (will insert NULL)
           });
-          console.log(`[Auth] Assigned role '${appConfig.ldapDefaultRole}' to user ${username} in '${applicationName}'`);
         } catch (error) {
-          console.warn(`[Auth] Failed to assign default role to LDAP user: ${error instanceof Error ? error.message : 'Unknown error'}`);
-          // Don't fail login if role assignment fails
+          logWarn(`[Auth] Failed to assign default role: ${error instanceof Error ? error.message : 'Unknown error'}`);
         }
-      } else {
-        console.log(`[Auth] No default role configured for application '${applicationName}', user created without roles`);
       }
     }
 

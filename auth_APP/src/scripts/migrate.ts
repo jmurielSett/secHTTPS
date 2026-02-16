@@ -1,6 +1,7 @@
 import dotenv from 'dotenv';
 import { closeDatabaseConnection } from '../infrastructure/database/connection';
 import { DatabaseMigrator } from '../infrastructure/database/migrator';
+import { logError } from '../utils/logger';
 
 // Load environment variables from .env
 dotenv.config();
@@ -20,8 +21,8 @@ dotenv.config();
     await migrator.runMigrations();
     
     console.log('✅ Database migrations completed successfully');
-  } catch (error) {
-    console.error('❌ Migration failed:', error);
+  } catch (err) {
+    logError('❌ Migration failed:', err instanceof Error ? err : undefined);
     process.exit(1);
   } finally {
     await closeDatabaseConnection();

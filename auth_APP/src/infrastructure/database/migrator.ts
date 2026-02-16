@@ -1,6 +1,7 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { Pool } from 'pg';
+import { logError } from '../../utils/logger';
 import { getPool } from './connection';
 
 export class DatabaseMigrator {
@@ -102,9 +103,9 @@ export class DatabaseMigrator {
       await client.query(`GRANT ALL PRIVILEGES ON DATABASE ${process.env.PG_DATABASE} TO ${process.env.PG_USER}`);
       
       console.log(`✅ Migration ${filename} executed successfully`);
-    } catch (error) {
-      console.error(`❌ Migration ${filename} failed:`, error);
-      throw error;
+    } catch (err) {
+      logError(`❌ Migration ${filename} failed:`, err instanceof Error ? err : undefined);
+      throw err;
     } finally {
       client.release();
       await adminPool.end();
@@ -125,10 +126,10 @@ export class DatabaseMigrator {
       await client.query('INSERT INTO auth.migrations (filename) VALUES ($1)', [filename]);
       await client.query('COMMIT');
       console.log(`✅ Migration ${filename} executed successfully`);
-    } catch (error) {
+    } catch (err) {
       await client.query('ROLLBACK');
-      console.error(`❌ Migration ${filename} failed:`, error);
-      throw error;
+      logError(`❌ Migration ${filename} failed:`, err instanceof Error ? err : undefined);
+      throw err;
     } finally {
       client.release();
     }

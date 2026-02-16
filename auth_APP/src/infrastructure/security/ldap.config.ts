@@ -1,4 +1,5 @@
 import dotenv from 'dotenv';
+import { logError, logInfo, logWarn } from '../../utils/logger';
 import { LDAPServerConfig } from './LDAPAuthenticationProvider';
 
 // Load environment variables BEFORE using them
@@ -23,22 +24,22 @@ function parseLDAPServers(): LDAPServerConfig[] {
     const servers = JSON.parse(ldapServersEnv);
     
     if (!Array.isArray(servers)) {
-      console.warn('[LDAP] LDAP_SERVERS must be a JSON array, got:', typeof servers);
+      logWarn(`[LDAP] LDAP_SERVERS must be a JSON array, got: ${typeof servers}`);
       return [];
     }
     
     return servers;
-  } catch (error) {
-    console.error('[LDAP] Failed to parse LDAP_SERVERS from environment:', error);
+  } catch (err) {
+    logError('[LDAP] Failed to parse LDAP_SERVERS from environment:', err instanceof Error ? err : undefined);
     return [];
   }
 }
 
 export const LDAP_CONFIG: LDAPServerConfig[] = parseLDAPServers();
 
-console.log('[LDAP Config] ENABLE_LDAP env var:', process.env.ENABLE_LDAP);
-console.log('[LDAP Config] enableLDAP calculated:', process.env.ENABLE_LDAP === 'true');
-console.log('[LDAP Config] LDAP servers found:', LDAP_CONFIG.length);
+logInfo(`[LDAP Config] ENABLE_LDAP env var: ${process.env.ENABLE_LDAP}`);
+logInfo(`[LDAP Config] enableLDAP calculated: ${process.env.ENABLE_LDAP === 'true'}`);
+logInfo(`[LDAP Config] LDAP servers found: ${LDAP_CONFIG.length}`);
 
 /**
  * Authentication Strategy Configuration

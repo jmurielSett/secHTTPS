@@ -1,4 +1,5 @@
 import { Pool } from 'pg';
+import { logError } from '../../../utils/logger';
 import { PasswordHasher } from '../../security/PasswordHasher';
 
 /**
@@ -68,8 +69,8 @@ export async function seedAdminUser(pool: Pool): Promise<void> {
     console.log(`✓ Super_admin role assigned in auth_APP`);
     console.log(`✓ Admin user fully configured with RBAC roles`);
     
-  } catch (error) {
-    console.error('Error seeding admin user:', error);
-    throw error;
+  } catch (err) {
+    logError('Error seeding admin user:', err instanceof Error ? err : undefined);
+    throw err;
   }
 }

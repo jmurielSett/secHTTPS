@@ -1,5 +1,6 @@
 import bcrypt from 'bcrypt';
 import { IPasswordHasher } from '../../domain/services/IPasswordHasher';
+import { logError } from '../../utils/logger';
 
 /**
  * Password Hasher Service
@@ -45,9 +46,9 @@ export class PasswordHasher implements IPasswordHasher {
 
     try {
       return await bcrypt.compare(password, hash);
-    } catch (error) {
+    } catch (err) {
       // Invalid hash format or other bcrypt errors
-      console.error('Password comparison error:', error);
+      logError('Password comparison error:', err instanceof Error ? err : undefined);
       return false;
     }
   }

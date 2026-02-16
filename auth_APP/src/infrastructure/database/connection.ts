@@ -1,4 +1,5 @@
 import { Pool } from 'pg';
+import { logError } from '../../utils/logger';
 
 let pool: Pool | null = null;
 
@@ -22,7 +23,7 @@ export function getPool(): Pool {
     });
 
     pool.on('error', (err) => {
-      console.error('Unexpected error on idle PostgreSQL client', err);
+      logError('Unexpected error on idle PostgreSQL client', err);
     });
   }
 
@@ -45,9 +46,9 @@ export async function connectDatabase(): Promise<Pool> {
     
     client.release();
     return poolInstance;
-  } catch (error) {
-    console.error('❌ Failed to connect to PostgreSQL:', error);
-    throw error;
+  } catch (err) {
+    logError('❌ Failed to connect to PostgreSQL:', err instanceof Error ? err : undefined);
+    throw err;
   }
 }
 

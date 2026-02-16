@@ -14,6 +14,7 @@ import { PasswordHasher } from './infrastructure/security/PasswordHasher';
 import { createAdminRouter } from './infrastructure/transport/routes/adminRoutes';
 import { createAuthRouter } from './infrastructure/transport/routes/authRoutes';
 import { CACHE_CONFIG } from './types/shared';
+import { logError } from './utils/logger';
 
 // Cargar variables de entorno
 dotenv.config();
@@ -66,9 +67,9 @@ export async function createApp(usePostgres: boolean = false): Promise<AppContex
     try {
       await seedAdminUser(pool);
       console.log('✅ PostgreSQL admin user seed completed');
-    } catch (error) {
-      console.error('❌ Error seeding admin user:', error);
-      throw error;
+    } catch (err) {
+      logError('❌ Error seeding admin user:', err instanceof Error ? err : undefined);
+      throw err;
     }
     
   } else {

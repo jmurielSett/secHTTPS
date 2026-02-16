@@ -29,42 +29,9 @@ export class UpdateUserUseCase {
     }
 
     // Validate and update fields
-    let updatedUsername = existingUser.username;
-    let updatedEmail = existingUser.email;
-    let updatedPasswordHash = existingUser.passwordHash;
-
-    if (input.username) {
-      const username = Username.create(input.username);
-      
-      // Check if new username is taken by another user
-      if (username.getValue() !== existingUser.username) {
-        const usernameExists = await this.userRepository.findByUsername(username.getValue());
-        if (usernameExists && usernameExists.id !== input.userId) {
-          throw new DomainError('Username already exists', 'DUPLICATE_USERNAME');
-        }
-      }
-      
-      updatedUsername = username.getValue();
-    }
-
-    if (input.email) {
-      const email = Email.create(input.email);
-      
-      // Check if new email is taken by another user
-      if (email.getValue() !== existingUser.email) {
-        const emailExists = await this.userRepository.findByEmail(email.getValue());
-        if (emailExists && emailExists.id !== input.userId) {
-          throw new DomainError('Email already exists', 'DUPLICATE_EMAIL');
-        }
-      }
-      
-      updatedEmail = email.getValue();
-    }
-
-    if (input.password) {
-      const password = Password.create(input.password);
-      updatedPasswordHash = await this.passwordHasher.hash(password.getValue());
-    }
+    const updatedUsername = await this.validateAndUpdateUsername(input.username, existingUser);
+    const updatedEmail = await this.validateAndUpdateEmail(input.email, existingUser, input.userId);
+    const updatedPasswordHash = await this.updatePassword(input.password, existingUser.passwordHash);
 
     // Create updated user entity
     const updatedUser: User = {
@@ -82,5 +49,69 @@ export class UpdateUserUseCase {
       ...savedUser,
       passwordHash: undefined as any
     };
+  }
+
+  /**
+   * Validates and updates username if provided
+   */
+  private async validateAndUpdateUsername(
+    newUsername: string | undefined,
+    existingUser: User
+  ): Promise<string> {
+    if (!newUsername) {
+      return existingUser.username;
+    }
+
+    const username = Username.create(newUsername);
+    
+    // Check if new username is taken by another user
+    if (username.getValue() !== existingUser.username) {
+      const usernameExists = await this.userRepository.findByUsername(username.getValue());
+      if (usernameExists && usernameExists.id !== existingUser.id) {
+        throw new DomainError('Username already exists', 'DUPLICATE_USERNAME');
+      }
+    }
+    
+    return username.getValue();
+  }
+
+  /**
+   * Validates and updates email if provided
+   */
+  private async validateAndUpdateEmail(
+    newEmail: string | undefined,
+    existingUser: User,
+    userId: string
+  ): Promise<string> {
+    if (!newEmail) {
+      return existingUser.email;
+    }
+
+    const email = Email.create(newEmail);
+    
+    // Check if new email is taken by another user
+    if (email.getValue() !== existingUser.email) {
+      const emailExists = await this.userRepository.findByEmail(email.getValue());
+      if (emailExists && emailExists.id !== userId) {
+        throw new DomainError('Email already exists', 'DUPLICATE_EMAIL');
+      }
+    }
+    
+    return email.getValue();
+  }
+
+  /**
+   * Updates password if provided
+   */
+  private async updatePassword(
+    newPassword: string | undefined,
+    currentPasswordHash: string
+  ): Promise<string> {
+    if (!newPassword) {
+      return currentPasswordHash;
+    }
+
+    const password = Password.create(newPassword);
+    return await this.passwordHasher.hash(password.getValue());
   }
 }

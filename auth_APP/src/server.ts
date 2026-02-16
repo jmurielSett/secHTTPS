@@ -1,5 +1,6 @@
 import { createApp } from './app';
 import { CACHE_CONFIG, JWT_CONFIG } from './types/shared';
+import { logError } from './utils/logger';
 
 const PORT = process.env.PORT || 4000;
 const USE_POSTGRES = process.env.USE_POSTGRES === 'true';
@@ -21,8 +22,8 @@ const USE_POSTGRES = process.env.USE_POSTGRES === 'true';
       console.log(`🔐 JWT Refresh Token: ${JWT_CONFIG.REFRESH_EXPIRATION}`);
       console.log(`💾 Cache TTL: ${CACHE_CONFIG.TTL_SECONDS}s (${CACHE_CONFIG.TTL_SECONDS / 60} min)`);
     });
-  } catch (error) {
-    console.error('❌ Failed to start Auth Service:', error);
+  } catch (err) {
+    logError('❌ Failed to start Auth Service:', err instanceof Error ? err : undefined);
     process.exit(1);
   }
 })();

@@ -1,5 +1,6 @@
 import dotenv from 'dotenv';
 import { closeDatabaseConnection, connectDatabase, getPool } from '../infrastructure/database/connection';
+import { logError } from '../utils/logger';
 
 // Load environment variables from .env
 dotenv.config();
@@ -16,8 +17,8 @@ async function resetDatabase() {
     
     console.log('✅ Database reset completed successfully');
     console.log('💡 Run "npm run db:migrate" to recreate the schema and tables');
-  } catch (error) {
-    console.error('❌ Database reset failed:', error);
+  } catch (err) {
+    logError('❌ Database reset failed:', err instanceof Error ? err : undefined);
     process.exit(1);
   } finally {
     await closeDatabaseConnection();

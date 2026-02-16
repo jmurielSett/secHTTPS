@@ -28,3 +28,16 @@ export const CACHE_CONFIG = {
   /** Intervalo de limpieza automática en milisegundos (1 minuto) */
   CLEANUP_INTERVAL_MS: 60 * 1000
 } as const;
+
+/**
+ * Configuración de logging
+ * Controla qué mensajes se muestran según el nivel de log y entorno
+ */
+export const LOG_CONFIG = {
+  /** Nivel de log actual (debug, info, warn, error) */
+  LEVEL: (process.env.LOG_LEVEL || 'info') as 'debug' | 'info' | 'warn' | 'error',
+  /** Habilitar logs de autenticación detallados */
+  ENABLE_AUTH_LOGS: process.env.LOG_AUTH_ATTEMPTS === 'true' || process.env.NODE_ENV === 'development',
+  /** Habilitar logs de LDAP detallados */
+  ENABLE_LDAP_LOGS: process.env.LOG_LDAP_DEBUG === 'true' || process.env.NODE_ENV === 'development'
+} as const;

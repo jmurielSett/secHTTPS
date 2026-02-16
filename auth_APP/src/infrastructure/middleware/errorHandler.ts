@@ -1,4 +1,5 @@
 import { NextFunction, Request, Response } from 'express';
+import { logError } from '../../utils/logger';
 
 export class AuthenticationError extends Error {
   constructor(message: string = 'Authentication failed') {
@@ -20,7 +21,7 @@ export function errorHandler(
   res: Response,
   _next: NextFunction
 ): void {
-  console.error('Error:', err);
+  logError('Error:', err);
 
   // Mapear errores específicos a códigos de estado HTTP
   if (err.name === 'AuthenticationError' || err.message === 'Invalid credentials') {

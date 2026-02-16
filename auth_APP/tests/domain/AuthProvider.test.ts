@@ -131,6 +131,7 @@ describe('AuthProvider Value Object', () => {
 
     it('debería mantener el valor correcto después de serialización', () => {
       const provider = AuthProvider.fromString('LDAP_CORPORATE');
+      // eslint-disable-next-line unicorn/prefer-structured-clone
       const json = JSON.parse(JSON.stringify({ provider }));
       
       expect(json.provider).toBe('LDAP_CORPORATE');
@@ -138,6 +139,7 @@ describe('AuthProvider Value Object', () => {
 
     it('debería serializar URLs de LDAP', () => {
       const provider = AuthProvider.fromString('ldap://ldap.example.com:389');
+      // eslint-disable-next-line unicorn/prefer-structured-clone
       const json = JSON.parse(JSON.stringify({ provider }));
       
       expect(json.provider).toBe('ldap://ldap.example.com:389');
