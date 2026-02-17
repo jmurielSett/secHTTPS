@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import './Login.css';
 
 interface LoginProps {
@@ -6,15 +6,42 @@ interface LoginProps {
 }
 
 const AUTH_APP_URL = import.meta.env.VITE_AUTH_APP_URL || 'http://localhost:4000';
+const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3000';
 const APPLICATION_NAME = import.meta.env.VITE_APPLICATION_NAME || 'secHTTPS_APP';
 
-export function Login({ onLoginSuccess }: LoginProps) {
+export function Login({ onLoginSuccess }: Readonly<LoginProps>) {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [sessionExpiredMsg, setSessionExpiredMsg] = useState('');
+  const [lastUsername, setLastUsername] = useState('');
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  // Detectar si llegamos aquí por sesión expirada y obtener último usuario
+  useEffect(() => {
+    const params = new URLSearchParams(globalThis.location.search);
+    if (params.get('sessionExpired') === 'true') {
+      setSessionExpiredMsg('Tu sesión ha expirado. Inicia sesión para continuar.');
+      // Limpiar parámetro de URL sin recargar
+      globalThis.history.replaceState({}, '', globalThis.location.pathname);
+    }
+    
+    // Obtener último usuario del localStorage
+    const userStr = localStorage.getItem('user');
+    if (userStr) {
+      try {
+        const user = JSON.parse(userStr);
+        if (user.username) {
+          setLastUsername(user.username);
+          setUsername(user.username);
+        }
+      } catch (e) {
+        console.error('Error al parsear datos de usuario:', e);
+      }
+    }
+  }, []);
+
+  const handleSubmit = async (e: React.SubmitEvent<HTMLFormElement>) => {
     e.preventDefault();
     setError('');
     setIsLoading(true);
@@ -33,8 +60,8 @@ export function Login({ onLoginSuccess }: LoginProps) {
       });
 
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error?.message || errorData.message || 'Login failed');
+        // Mensaje genérico según OWASP - no revelar detalles específicos
+        throw new Error('Error al iniciar sesión. Por favor, verifica tus datos e intenta nuevamente.');
       }
 
       const data = await response.json();
@@ -49,12 +76,32 @@ export function Login({ onLoginSuccess }: LoginProps) {
         role: data.user.role
       }));
 
-      console.log('✅ Login exitoso:', data.user.username);
+      // Verificar conexión con el servidor backend antes de pasar al Dashboard
+      try {
+        const backendResponse = await fetch(`${BACKEND_URL}/trpc/certificate.hello?batch=1&input={"0":{"json":{"name":"SecHTTPS"}}}`, {
+          credentials: 'include',
+          headers: {
+            'Content-Type': 'application/json'
+          }
+        });
+
+        if (!backendResponse.ok) {
+          throw new Error('Backend server not responding');
+        }
+      } catch (backendError) {
+        console.error('❌ Error al verificar conexión con backend');
+        // Limpiar datos de usuario si no hay conexión con backend
+        localStorage.removeItem('user');
+        throw new Error('Servicio no disponible temporalmente. Por favor, contacte con el administrador.');
+      }
+
+      console.log('✅ Login exitoso');
       onLoginSuccess();
 
     } catch (err: any) {
-      console.error('❌ Error en login:', err);
-      setError(err.message || 'Error al conectar con el servidor de autenticación');
+      console.error('❌ Error en login');
+      // Mensaje genérico según OWASP - no revelar detalles del sistema
+      setError(err.message || 'Error de autenticación. Por favor, intenta nuevamente.');
     } finally {
       setIsLoading(false);
     }
@@ -66,8 +113,14 @@ export function Login({ onLoginSuccess }: LoginProps) {
         <div className="login-header">
           <h1>🔒 SecHTTPS</h1>
           <h2>Certificate Manager</h2>
-          <p className="app-name">Application: {APPLICATION_NAME}</p>
         </div>
+        
+        {sessionExpiredMsg && (
+          <div className="info-message">
+            <span className="info-icon">ℹ️</span>
+            {sessionExpiredMsg}
+          </div>
+        )}
         
         {error && (
           <div className="error-message">
@@ -85,7 +138,7 @@ export function Login({ onLoginSuccess }: LoginProps) {
               value={username}
               onChange={(e) => setUsername(e.target.value)}
               disabled={isLoading}
-              placeholder="jmuriel"
+              placeholder={lastUsername || ''}
               autoComplete="username"
               required
             />
@@ -108,7 +161,7 @@ export function Login({ onLoginSuccess }: LoginProps) {
           <button type="submit" disabled={isLoading} className="submit-button">
             {isLoading ? (
               <>
-                <span className="spinner"></span>
+                <span className="spinner"></span>{' '}
                 Iniciando sesión...
               </>
             ) : (
@@ -119,9 +172,6 @@ export function Login({ onLoginSuccess }: LoginProps) {
 
         <div className="login-footer">
           <p>Sistema de gestión de certificados SSL/TLS</p>
-          <p className="auth-info">
-            🔐 Autenticación: {AUTH_APP_URL}
-          </p>
         </div>
       </div>
     </div>

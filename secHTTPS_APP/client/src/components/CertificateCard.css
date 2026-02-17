@@ -1,0 +1,116 @@
+/* Estilos movidos desde App.css */
+.certificate-card {
+  background: white;
+  padding: 1rem;
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  transition: all 0.3s ease;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.certificate-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.15);
+}
+
+.certificate-card h3 {
+  margin: 0;
+  color: #333;
+  font-size: 1rem;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Header con badges */
+.cert-header {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+/* Grid de información */
+.cert-info {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.cert-row {
+  display: grid;
+  grid-template-columns: 80px 1fr;
+  gap: 0.5rem;
+  align-items: start;
+  font-size: 0.85rem;
+}
+
+.cert-row-full {
+  grid-template-columns: 80px 1fr;
+}
+
+.cert-label {
+  color: #666;
+  font-weight: 500;
+}
+
+.cert-value {
+  color: #333;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-align: left;
+}
+
+/* Badges */
+.status-badge,
+.expiration-badge {
+  display: inline-block;
+  padding: 0.25rem 0.75rem;
+  border-radius: 12px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+/* Estados de certificados (no se muestran en UI, solo para filtros) */
+.status-badge.active {
+  background: #e8f5e9;
+  color: #2e7d32;
+}
+
+.status-badge.deleted {
+  background: #ffebee;
+  color: #c62828;
+}
+
+/* Estados de expiración (NORMAL, WARNING, EXPIRED) */
+.expiration-badge.normal {
+  background: #e8f5e9;
+  color: #2e7d32;
+}
+
+.expiration-badge.warning {
+  background: #fff3e0;
+  color: #d84315;
+}
+
+.expiration-badge.expired {
+  background: #ffebee;
+  color: #c62828;
+}
+
+/* Responsive: ajustar layout en móviles */
+@media (max-width: 640px) {
+  .cert-row {
+    grid-template-columns: 1fr;
+    gap: 0.25rem;
+  }
+  
+  .cert-label {
+    font-weight: 600;
+  }
+}

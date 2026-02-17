@@ -61,7 +61,7 @@ export class LocalizationService implements ILocalizationService {
    * Carga todos los templates JSON al inicializar
    */
   private loadTemplates(): void {
-    const templatesDir = path.join(__dirname, 'templates');
+    const templatesDir = path.join(import.meta.dirname, 'templates');
     const languages = Object.values(SupportedLanguage);
     const templateTypes = Object.values(EmailTemplate);
 

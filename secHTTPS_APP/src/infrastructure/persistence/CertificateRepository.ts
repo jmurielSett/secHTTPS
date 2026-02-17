@@ -21,18 +21,38 @@ export class InMemoryCertificateRepository implements ICertificateRepository {
       return certificates;
     }
 
+    // Búsqueda parcial: "empieza por" (case-insensitive)
     if (filters.client) {
-      certificates = certificates.filter(cert => cert.client === filters.client);
+      const searchTerm = filters.client.toLowerCase();
+      certificates = certificates.filter(cert => 
+        cert.client.toLowerCase().startsWith(searchTerm)
+      );
     }
 
     if (filters.server) {
-      certificates = certificates.filter(cert => cert.server === filters.server);
+      const searchTerm = filters.server.toLowerCase();
+      certificates = certificates.filter(cert => 
+        cert.server.toLowerCase().startsWith(searchTerm)
+      );
     }
 
     if (filters.fileName) {
-      certificates = certificates.filter(cert => cert.fileName === filters.fileName);
+      const searchTerm = filters.fileName.toLowerCase();
+      certificates = certificates.filter(cert => 
+        cert.fileName.toLowerCase().startsWith(searchTerm)
+      );
     }
 
+    if (filters.responsibleEmail) {
+      const searchTerm = filters.responsibleEmail.toLowerCase();
+      certificates = certificates.filter(cert =>
+        cert.responsibleContacts.some(contact => 
+          contact.email.toLowerCase().startsWith(searchTerm)
+        )
+      );
+    }
+
+    // Filtros exactos para enums
     if (filters.status) {
       certificates = certificates.filter(cert => cert.status === filters.status);
     }

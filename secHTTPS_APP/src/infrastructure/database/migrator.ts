@@ -4,7 +4,7 @@ import { Pool } from 'pg';
 import { getPool } from './connection';
 
 export class DatabaseMigrator {
-  private readonly migrationsPath = path.join(__dirname, 'migrations');
+  private readonly migrationsPath = path.join(import.meta.dirname, 'migrations');
 
   /**
    * Creates a temporary connection pool to postgres database for database creation

@@ -6,6 +6,7 @@ export interface GetCertificatesFilters {
   client?: string;
   server?: string;
   fileName?: string;
+  responsibleEmail?: string;
   status?: CertificateStatus;
   expirationStatus?: ExpirationStatus;
 }

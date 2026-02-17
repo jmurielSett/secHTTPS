@@ -13,6 +13,7 @@ const getCertificatesSchema = z.object({
   client: z.string().optional(),
   server: z.string().optional(),
   fileName: z.string().optional(),
+  responsibleEmail: z.string().optional(),
   status: z.enum(['ACTIVE', 'DELETED']).optional(),
   expirationStatus: z.enum(['NORMAL', 'WARNING', 'EXPIRED']).optional()
 }).optional();
@@ -30,6 +31,9 @@ export const certificateRouter = router({
     .input(getCertificatesSchema)
     .query(async ({ input, ctx }) => {
       console.log(`[tRPC] User ${ctx.username} (${ctx.userId}) fetching certificates`);
+      
+      // 🔧 TEMPORAL: Delay artificial para visualizar el loading overlay (remover en producción)
+      await new Promise(resolve => setTimeout(resolve, 200));
       
       const getCertificatesUseCase = new GetCertificatesUseCase(ctx.certificateRepository);
       
