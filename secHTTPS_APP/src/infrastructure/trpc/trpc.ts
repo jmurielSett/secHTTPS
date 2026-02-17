@@ -2,7 +2,7 @@
  * tRPC Base Configuration
  * Define el contexto y los procedimientos base para tRPC
  */
-import { initTRPC } from '@trpc/server';
+import { TRPCError, initTRPC } from '@trpc/server';
 import { ICertificateRepository } from '../../domain/repositories/ICertificateRepository';
 import { INotificationRepository } from '../../domain/repositories/INotificationRepository';
 
@@ -13,10 +13,11 @@ import { INotificationRepository } from '../../domain/repositories/INotification
 export interface TRPCContext {
   certificateRepository: ICertificateRepository;
   notificationRepository: INotificationRepository;
-  // TODO: Agregar cuando se integre auth_APP:
-  // userId?: number;
-  // username?: string;
-  // token?: string;
+  // Authentication data (from JWT in httpOnly cookie)
+  userId?: string;
+  username?: string;
+  applicationName?: string;
+  roles?: string[];
 }
 
 /**
@@ -28,12 +29,31 @@ const t = initTRPC.context<TRPCContext>().create();
  * Exportar helpers de tRPC
  */
 export const router = t.router;
+
+/**
+ * Procedimiento público - No requiere autenticación
+ */
 export const publicProcedure = t.procedure;
 
-// TODO: Crear procedimientos protegidos cuando se integre auth_APP
-// export const protectedProcedure = t.procedure.use(async ({ ctx, next }) => {
-//   if (!ctx.userId) {
-//     throw new TRPCError({ code: 'UNAUTHORIZED' });
-//   }
-//   return next({ ctx: { ...ctx, userId: ctx.userId } });
-// });
+/**
+ * Procedimiento protegido - Requiere autenticación válida
+ * Verifica que el usuario esté autenticado (tiene userId en el contexto)
+ */
+export const protectedProcedure = t.procedure.use(async ({ ctx, next }) => {
+  if (!ctx.userId) {
+    throw new TRPCError({
+      code: 'UNAUTHORIZED',
+      message: 'You must be logged in to access this resource. Please authenticate first.'
+    });
+  }
+
+  return next({
+    ctx: {
+      ...ctx,
+      userId: ctx.userId,
+      username: ctx.username!,
+      applicationName: ctx.applicationName,
+      roles: ctx.roles || []
+    }
+  });
+});

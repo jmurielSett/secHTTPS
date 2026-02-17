@@ -4,7 +4,7 @@
  */
 import { z } from 'zod';
 import { GetCertificatesUseCase } from '../../../domain/usecases/certificates/GetCertificatesUseCase';
-import { publicProcedure, router } from '../trpc';
+import { protectedProcedure, publicProcedure, router } from '../trpc';
 
 /**
  * Schema de validación con Zod para filtros de certificados
@@ -24,10 +24,13 @@ export const certificateRouter = router({
   /**
    * Obtener lista de certificados con filtros opcionales
    * Query: /trpc/certificate.getCertificates
+   * 🔒 PROTEGIDO - Requiere autenticación
    */
-  getCertificates: publicProcedure
+  getCertificates: protectedProcedure
     .input(getCertificatesSchema)
     .query(async ({ input, ctx }) => {
+      console.log(`[tRPC] User ${ctx.username} (${ctx.userId}) fetching certificates`);
+      
       const getCertificatesUseCase = new GetCertificatesUseCase(ctx.certificateRepository);
       
       // Zod validates the input schema, we can safely cast to use case filters
@@ -40,6 +43,7 @@ export const certificateRouter = router({
   /**
    * Health check simple para verificar que tRPC está funcionando
    * Query: /trpc/certificate.hello
+   * ✅ PÚBLICO - No requiere autenticación
    */
   hello: publicProcedure
     .input(z.object({ name: z.string().optional() }).optional())

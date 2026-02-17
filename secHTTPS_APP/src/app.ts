@@ -1,6 +1,8 @@
 import * as trpcExpress from '@trpc/server/adapters/express';
+import cookieParser from 'cookie-parser';
 import cors from 'cors';
 import express, { Application } from 'express';
+import jwt from 'jsonwebtoken';
 import { ICertificateRepository } from './domain/repositories/ICertificateRepository';
 import { INotificationRepository } from './domain/repositories/INotificationRepository';
 import { connectDatabase } from './infrastructure/database/connection';
@@ -47,11 +49,14 @@ export async function createApp(usePostgres: boolean = false): Promise<AppContex
         callback(new Error('Not allowed by CORS'));
       }
     },
-    credentials: true
+    credentials: true // IMPORTANTE: permite enviar/recibir cookies cross-origin
   }));
   
   // Middleware para parsear JSON
   app.use(express.json());
+  
+  // Middleware para parsear cookies (DEBE ir antes de las rutas)
+  app.use(cookieParser());
   
   // Middleware para logging de peticiones
   app.use(requestLogger);
@@ -68,19 +73,59 @@ export async function createApp(usePostgres: boolean = false): Promise<AppContex
     notificationRepository = new InMemoryNotificationRepository();
   }
   
+  // JWT Configuration
+  const JWT_ACCESS_SECRET = process.env.JWT_ACCESS_SECRET!;
+  const APPLICATION_NAME = process.env.APPLICATION_NAME || 'secHTTPS_APP';
+
   // tRPC endpoint - Expone todos los procedimientos bajo /trpc
   app.use(
     '/trpc',
     trpcExpress.createExpressMiddleware({
       router: appRouter,
-      createContext: (): TRPCContext => ({
-        certificateRepository,
-        notificationRepository
-        // TODO: Agregar cuando se integre auth_APP:
-        // userId: req.user?.id,
-        // username: req.user?.username,
-        // token: req.headers.authorization?.split(' ')[1]
-      })
+      createContext: ({ req }): TRPCContext => {
+        let userId: string | undefined;
+        let username: string | undefined;
+        let applicationName: string | undefined;
+        let roles: string[] | undefined;
+
+        // Extract access token from httpOnly cookie
+        const accessToken = req.cookies.accessToken;
+
+        if (accessToken) {
+          try {
+            const decoded = jwt.verify(accessToken, JWT_ACCESS_SECRET) as any;
+            
+            // Validate token type and application
+            if (decoded.type === 'access') {
+              // Validate that token is for this application
+              if (!decoded.applicationName || decoded.applicationName === APPLICATION_NAME) {
+                userId = decoded.userId;
+                username = decoded.username;
+                applicationName = decoded.applicationName;
+                roles = decoded.roles || [];
+              } else {
+                console.warn(`[Auth] Token is for ${decoded.applicationName}, not ${APPLICATION_NAME}`);
+              }
+            }
+          } catch (error: any) {
+            // Token invalid or expired - context will have no user
+            if (error.name === 'TokenExpiredError') {
+              console.warn('[Auth] Access token expired');
+            } else {
+              console.warn('[Auth] Invalid access token:', error.message);
+            }
+          }
+        }
+
+        return {
+          certificateRepository,
+          notificationRepository,
+          userId,
+          username,
+          applicationName,
+          roles
+        };
+      }
     })
   );
     

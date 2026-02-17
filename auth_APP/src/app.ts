@@ -1,3 +1,5 @@
+import cookieParser from 'cookie-parser';
+import cors from 'cors';
 import dotenv from 'dotenv';
 import express, { Application } from 'express';
 import { IUserRepository } from './domain/repositories/IUserRepository';
@@ -39,6 +41,23 @@ export async function createApp(usePostgres: boolean = false): Promise<AppContex
   }
 
   const app = express();
+  
+  // CORS configuration - Allow requests from frontend applications
+  const allowedOrigins = [
+    'http://localhost:5173', // Vite dev server (secHTTPS_APP frontend)
+    'http://localhost:5174', // Alternative Vite port
+    'http://localhost:3000', // secHTTPS_APP backend
+  ];
+
+  app.use(cors({
+    origin: allowedOrigins,
+    credentials: true, // CRITICAL: Allow cookies to be sent/received
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization'],
+  }));
+  
+  // Cookie parser middleware - Parse httpOnly cookies
+  app.use(cookieParser());
   
   // Middleware para parsear JSON
   app.use(express.json());

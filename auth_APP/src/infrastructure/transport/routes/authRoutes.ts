@@ -4,11 +4,11 @@ import { IApplicationRepository } from '../../../domain/repositories/IApplicatio
 import { IUserRepository } from '../../../domain/repositories/IUserRepository';
 import { IAuthenticationProvider, IPasswordHasher, ITokenService } from '../../../domain/services';
 import {
-  AssignRoleUseCase,
-  LoginUseCase,
-  RefreshTokenUseCase,
-  RegisterUserUseCase,
-  ValidateTokenUseCase
+    AssignRoleUseCase,
+    LoginUseCase,
+    RefreshTokenUseCase,
+    RegisterUserUseCase,
+    ValidateTokenUseCase
 } from '../../../domain/usecases';
 import { InMemoryApplicationRepository } from '../../persistence/InMemoryApplicationRepository';
 import { PostgresApplicationRepository } from '../../persistence/PostgresApplicationRepository';
@@ -98,6 +98,7 @@ export function createAuthRouter(
   router.post('/refresh', (req, res, next) => authController.refresh(req, res, next));
   router.post('/validate', (req, res, next) => authController.validate(req, res, next));
   router.post('/register', (req, res, next) => authController.register(req, res, next));
+  router.post('/logout', (req, res, next) => authController.logout(req, res, next));
 
   return router;
 }
