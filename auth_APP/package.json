@@ -30,8 +30,12 @@
     "db:reset": "tsx src/scripts/reset-db.ts"
   },
   "dependencies": {
+    "@types/cookie-parser": "^1.4.10",
+    "@types/cors": "^2.8.19",
     "@types/ldapjs": "^3.0.6",
     "bcrypt": "^5.1.1",
+    "cookie-parser": "^1.4.7",
+    "cors": "^2.8.6",
     "dotenv": "^17.3.1",
     "express": "^5.2.1",
     "jsonwebtoken": "^9.0.2",

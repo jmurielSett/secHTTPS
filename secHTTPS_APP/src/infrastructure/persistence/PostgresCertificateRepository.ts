@@ -97,21 +97,34 @@ export class PostgresCertificateRepository implements ICertificateRepository {
     const values: any[] = [];
     let paramCounter = 1;
 
+    // Búsqueda parcial "startsWith" (case-insensitive) para strings
     if (filters?.client) {
-      conditions.push(`c.client = $${paramCounter}`);
+      conditions.push(`c.client ILIKE $${paramCounter} || '%'`);
       values.push(filters.client);
       paramCounter++;
     }
 
     if (filters?.server) {
-      conditions.push(`c.server = $${paramCounter}`);
+      conditions.push(`c.server ILIKE $${paramCounter} || '%'`);
       values.push(filters.server);
       paramCounter++;
     }
 
     if (filters?.fileName) {
-      conditions.push(`c.file_name = $${paramCounter}`);
+      conditions.push(`c.file_name ILIKE $${paramCounter} || '%'`);
       values.push(filters.fileName);
+      paramCounter++;
+    }
+
+    // Para filtro de email: usar subconsulta para encontrar certificados con ese email,
+    // pero el JOIN principal devuelve TODOS los contactos de esos certificados
+    if (filters?.responsibleEmail) {
+      conditions.push(`c.id IN (
+        SELECT certificate_id 
+        FROM certificate_responsible_contacts 
+        WHERE email ILIKE $${paramCounter} || '%'
+      )`);
+      values.push(filters.responsibleEmail);
       paramCounter++;
     }
 

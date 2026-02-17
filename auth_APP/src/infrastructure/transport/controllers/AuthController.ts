@@ -60,10 +60,27 @@ export class AuthController {
         applicationName // Optional: single-app token if provided
       });
 
+      // Set httpOnly cookies for tokens (SECURE: JavaScript cannot access them)
+      res.cookie('accessToken', result.accessToken, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production', // HTTPS only in production
+        sameSite: 'strict',
+        maxAge: 60 * 1000, // 1 minute (matching JWT_CONFIG.ACCESS_EXPIRATION)
+        path: '/'
+      });
+
+      res.cookie('refreshToken', result.refreshToken, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'strict',
+        maxAge: 5 * 60 * 1000, // 5 minutes (matching JWT_CONFIG.REFRESH_EXPIRATION)
+        path: '/'
+      });
+
       res.status(200).json({
-        accessToken: result.accessToken,
-        refreshToken: result.refreshToken,
-        user: result.user
+        success: true,
+        user: result.user,
+        message: 'Login successful, tokens stored in httpOnly cookies'
       });
     } catch (error) {
       next(error);
@@ -76,14 +93,15 @@ export class AuthController {
    */
   async refresh(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const { refreshToken } = req.body;
+      // Try to get refresh token from cookies first, then from body as fallback
+      const refreshToken = req.cookies?.refreshToken || req.body.refreshToken;
 
       // Validar que el refreshToken está presente
       if (!refreshToken) {
         res.status(400).json({
           error: {
             code: 'VALIDATION_ERROR',
-            message: 'Refresh token is required'
+            message: 'Refresh token is required (in cookie or body)'
           }
         });
         return;
@@ -109,10 +127,27 @@ export class AuthController {
         refreshToken: tokenVO.getValue()
       });
 
+      // Set new httpOnly cookies for refreshed tokens
+      res.cookie('accessToken', result.accessToken, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'strict',
+        maxAge: 60 * 1000, // 1 minute
+        path: '/'
+      });
+
+      res.cookie('refreshToken', result.refreshToken, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'strict',
+        maxAge: 5 * 60 * 1000, // 5 minutes
+        path: '/'
+      });
+
       res.status(200).json({
-        accessToken: result.accessToken,
-        refreshToken: result.refreshToken,
-        user: result.user
+        success: true,
+        user: result.user,
+        message: 'Tokens refreshed successfully'
       });
     } catch (error) {
       next(error);
@@ -210,6 +245,36 @@ export class AuthController {
           email: user.email,
           createdAt: user.createdAt
         }
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
+   * POST /auth/logout
+   * Limpia las cookies de autenticación
+   */
+  async logout(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      // Clear httpOnly cookies
+      res.clearCookie('accessToken', {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'strict',
+        path: '/'
+      });
+
+      res.clearCookie('refreshToken', {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'strict',
+        path: '/'
+      });
+
+      res.status(200).json({
+        success: true,
+        message: 'Logged out successfully'
       });
     } catch (error) {
       next(error);

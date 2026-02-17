@@ -1,0 +1,335 @@
+.certificate-filters {
+  background: rgba(255, 255, 255, 0.05);
+  padding: 1.5rem;
+  border-radius: 12px;
+  margin-bottom: 1.5rem;
+}
+
+.filters-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem;
+}
+
+.filters-header h3 {
+  margin: 0;
+  color: #646cff;
+  font-size: 1.1rem;
+}
+
+.clear-filters-btn {
+  background: rgba(248, 113, 113, 0.1);
+  color: #f87171;
+  border: 1px solid rgba(248, 113, 113, 0.3);
+  padding: 0.5rem 1rem;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 0.85rem;
+  transition: all 0.3s ease;
+}
+
+.clear-filters-btn:hover {
+  background: rgba(248, 113, 113, 0.2);
+  border-color: rgba(248, 113, 113, 0.5);
+}
+
+/* Layout responsive de contenido */
+.filters-content {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+/* Grid de inputs responsive */
+.filters-inputs {
+  display: grid;
+  gap: 1rem;
+  /* Pantallas grandes: 4 columnas */
+  grid-template-columns: repeat(4, 1fr);
+}
+
+/* Pantallas medianas: 2x2 */
+@media (max-width: 1024px) {
+  .filters-inputs {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+/* Pantallas pequeñas: 1 columna */
+@media (max-width: 640px) {
+  .filters-inputs {
+    grid-template-columns: 1fr;
+  }
+}
+
+.filter-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.filter-group input,
+.filter-group select {
+  padding: 0.5rem;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.05);
+  color: inherit;
+  font-size: 0.9rem;
+  transition: all 0.3s ease;
+  width: 100%;
+}
+
+.filter-group input:focus,
+.filter-group select:focus {
+  outline: none;
+  border-color: #667eea;
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.filter-group input::placeholder {
+  color: rgba(255, 255, 255, 0.4);
+}
+
+/* Controles (toggle + radios) */
+.filters-controls {
+  display: flex;
+  gap: 2rem;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+@media (max-width: 640px) {
+  .filters-controls {
+    flex-direction: column;
+    gap: 1.5rem;
+    align-items: flex-start;
+  }
+}
+
+/* Toggle Switch Estilo iOS */
+.status-filter {
+  flex-direction: row;
+}
+
+.status-toggle-switch {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.toggle-label {
+  font-size: 0.9rem;
+  color: #9ca3af;
+  font-weight: 400;
+  transition: all 0.3s ease;
+}
+
+.toggle-label.active {
+  color: #e5e7eb;
+  font-weight: 500;
+}
+
+.toggle-switch {
+  position: relative;
+  width: 54px;
+  height: 28px;
+  background-color: #22c55e;
+  border: none;
+  border-radius: 14px;
+  cursor: pointer;
+  transition: background-color 0.3s ease;
+  padding: 0;
+}
+
+.toggle-switch:focus {
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(34, 197, 94, 0.2);
+}
+
+.toggle-switch.active {
+  background-color: #ef4444;
+}
+
+.toggle-switch.active:focus {
+  box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.2);
+}
+
+.toggle-slider {
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 22px;
+  height: 22px;
+  background-color: white;
+  border-radius: 50%;
+  transition: transform 0.3s ease;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+.toggle-switch.active .toggle-slider {
+  transform: translateX(26px);
+}
+
+.toggle-switch:hover .toggle-slider {
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+}
+
+/* Radio buttons personalizados para expiración */
+.expiration-filter {
+  flex-direction: row;
+}
+
+.expiration-options {
+  display: flex;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.radio-option {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  cursor: pointer;
+  padding: 0.5rem 0.75rem;
+  border-radius: 8px;
+  transition: background-color 0.2s ease;
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.radio-option:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.radio-option input[type="radio"] {
+  display: none;
+}
+
+.radio-custom {
+  width: 20px;
+  height: 20px;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  border-radius: 50%;
+  position: relative;
+  transition: all 0.2s ease;
+}
+
+.radio-option input[type="radio"]:checked + .radio-custom {
+  border-width: 2px;
+}
+
+.radio-option input[type="radio"]:checked + .radio-custom::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  transition: all 0.2s ease;
+}
+
+.radio-label {
+  font-size: 0.75rem;
+  color: rgba(255, 255, 255, 0.7);
+  font-weight: 600;
+  text-transform: uppercase;
+  transition: all 0.2s ease;
+}
+
+.radio-option input[type="radio"]:checked ~ .radio-label {
+  font-weight: 600;
+}
+
+/* Colores para cada opción de radio */
+.radio-all input[type="radio"]:checked + .radio-custom {
+  border-color: #8b5cf6;
+}
+
+.radio-all input[type="radio"]:checked + .radio-custom::after {
+  background-color: #8b5cf6;
+}
+
+.radio-all input[type="radio"]:checked ~ .radio-label {
+  color: #a78bfa;
+}
+
+.radio-normal input[type="radio"]:checked + .radio-custom {
+  border-color: #22c55e;
+}
+
+.radio-normal input[type="radio"]:checked + .radio-custom::after {
+  background-color: #22c55e;
+}
+
+.radio-normal input[type="radio"]:checked ~ .radio-label {
+  color: #4ade80;
+}
+
+.radio-warning input[type="radio"]:checked + .radio-custom {
+  border-color: #fb923c;
+}
+
+.radio-warning input[type="radio"]:checked + .radio-custom::after {
+  background-color: #fb923c;
+}
+
+.radio-warning input[type="radio"]:checked ~ .radio-label {
+  color: #fdba74;
+}
+
+.radio-expired input[type="radio"]:checked + .radio-custom {
+  border-color: #ef4444;
+}
+
+.radio-expired input[type="radio"]:checked + .radio-custom::after {
+  background-color: #ef4444;
+}
+
+.radio-expired input[type="radio"]:checked ~ .radio-label {
+  color: #f87171;
+}
+
+/* Light mode support */
+@media (prefers-color-scheme: light) {
+  .certificate-filters {
+    background: rgba(0, 0, 0, 0.02);
+  }
+
+  .filter-group input,
+  .filter-group select {
+    background: white;
+    border-color: rgba(0, 0, 0, 0.2);
+    color: #333;
+  }
+
+  .filter-group input::placeholder {
+    color: rgba(0, 0, 0, 0.4);
+  }
+
+  .toggle-label {
+    color: #6b7280;
+  }
+
+  .toggle-label.active {
+    color: #1f2937;
+  }
+
+  .radio-label {
+    color: rgba(0, 0, 0, 0.7);
+  }
+
+  .radio-custom {
+    border-color: rgba(0, 0, 0, 0.3);
+  }
+
+  .radio-option {
+    background: rgba(0, 0, 0, 0.02);
+  }
+
+  .radio-option:hover {
+    background: rgba(0, 0, 0, 0.05);
+  }
+}

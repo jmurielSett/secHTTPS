@@ -1,3 +1,4 @@
+# Dependencies
 node_modules/
 
 # Build outputs
@@ -43,15 +44,3 @@ playwright/.cache/
 
 # OS files
 Thumbs.db
-
-# no publicar docker
-Dockerfile
-docker-compose.yml
-
-# Testing
-coverage/
-
-# Playwright
-test-results/
-playwright-report/
-playwright/.cache/
