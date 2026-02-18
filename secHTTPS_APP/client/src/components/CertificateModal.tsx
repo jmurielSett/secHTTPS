@@ -344,7 +344,7 @@ export function CertificateModal({ certificate, onClose, canUpdate, canDelete, o
               {/* Responsables */}
                 <div className="modal-section">
                   <section className="form-section">
-                    <h3 style={{ textAlign: 'center', margin: '2rem 0 1rem 0' }}>
+                    <h3 style={{ textAlign: 'center', margin: '0.5rem 0 0.75rem 0' }}>
                       👥 Contactos Responsables
                     </h3>
                     <div className="contacts-table-wrapper">
