@@ -177,7 +177,9 @@ export function CertificatesList({ onLogout, showServerError }: Readonly<Certifi
                 <>
                   {viewMode === 'cards' ? (
                     <div className="certificates-grid">
-                      {certificatesQuery.data.certificates.map((cert) => (
+                      {[...certificatesQuery.data.certificates]
+                        .sort((a, b) => new Date(a.expirationDate).getTime() - new Date(b.expirationDate).getTime())
+                        .map((cert) => (
                         <CertificateCard 
                           key={cert.id} 
                           certificate={cert}
