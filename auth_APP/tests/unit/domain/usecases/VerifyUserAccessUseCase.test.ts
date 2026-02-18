@@ -107,11 +107,11 @@ describe('VerifyUserAccessUseCase', () => {
       
       await useCase.execute('1', 'app', 'admin');
       
-      // TTL debe ser 900 segundos (15 minutos) desde CACHE_CONFIG
+      // TTL debe ser 60 segundos (= JWT_CONFIG.ACCESS_EXPIRATION_SECONDS = 1 min)
       expect(mockCacheService.set).toHaveBeenCalledWith(
         expect.any(String),
         expect.any(Array),
-        900 // JWT_CONFIG.ACCESS_EXPIRATION_SECONDS
+        60 // CACHE_CONFIG.TTL_SECONDS = JWT_CONFIG.ACCESS_EXPIRATION_SECONDS
       );
     });
   });

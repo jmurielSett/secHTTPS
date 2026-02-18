@@ -3,13 +3,14 @@ import { Pool } from 'pg';
 import { IUserRepository } from '../../../domain/repositories/IUserRepository';
 import { IPasswordHasher } from '../../../domain/services';
 import {
-  CreateUserUseCase,
-  DeleteUserUseCase,
-  GetUserByIdUseCase,
-  GetUsersUseCase,
-  UpdateUserUseCase
+    CreateUserUseCase,
+    DeleteUserUseCase,
+    GetUserByIdUseCase,
+    GetUsersUseCase,
+    UpdateUserUseCase
 } from '../../../domain/usecases';
 import { VerifyUserAccessUseCase } from '../../../domain/usecases/VerifyUserAccessUseCase';
+import { authenticateToken, requireRole } from '../../middleware/authMiddleware';
 import { AdminController } from '../controllers/AdminController';
 import { UserAdminController } from '../controllers/UserAdminController';
 
@@ -27,7 +28,11 @@ export function createAdminRouter(
   passwordHasher: IPasswordHasher
 ): Router {
   const router = Router();
-  
+
+  // Proteger todas las rutas admin: requiere token válido + rol 'admin'
+  router.use(authenticateToken);
+  router.use(requireRole('admin'));
+
   // Role management controller
   const adminController = new AdminController(pool, verifyAccessUseCase);
 

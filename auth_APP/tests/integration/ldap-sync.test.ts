@@ -72,19 +72,26 @@ describe('LDAP User Sync - Integration Test', () => {
         applicationName: LDAP_TEST_USER.application
       });
 
-    // Should return 200 with tokens
+    // Should return 200 with tokens in cookies
     expect(response.status).toBe(200);
-    expect(response.body).toHaveProperty('accessToken');
-    expect(response.body).toHaveProperty('refreshToken');
+    const cookies = response.headers['set-cookie'] as string[] | undefined;
+    const accessToken = cookies
+      ?.map(c => c.match(/^accessToken=([^;]+)/)?.[1])
+      .find(Boolean) ?? '';
+    const refreshToken = cookies
+      ?.map(c => c.match(/^refreshToken=([^;]+)/)?.[1])
+      .find(Boolean);
+    expect(accessToken).toBeTruthy();
+    expect(refreshToken).toBeTruthy();
     expect(response.body.user).toMatchObject({
       username: LDAP_TEST_USER.username,
       authProvider: 'LDAP_SETTING_1'
     });
 
     // Decode JWT to verify content
-    const accessToken = response.body.accessToken;
+    const decodedToken = decodeURIComponent(accessToken);
     const payload = JSON.parse(
-      Buffer.from(accessToken.split('.')[1], 'base64').toString()
+      Buffer.from(decodedToken.split('.')[1], 'base64').toString()
     );
 
     expect(payload).toMatchObject({

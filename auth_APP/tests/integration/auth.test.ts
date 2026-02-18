@@ -3,6 +3,16 @@ import request from 'supertest';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { createApp } from '../../src/app';
 
+/** Extrae el valor de una cookie httpOnly del array Set-Cookie del response */
+function extractCookie(cookies: string[] | undefined, name: string): string | undefined {
+  if (!cookies) return undefined;
+  for (const cookie of cookies) {
+    const match = cookie.match(new RegExp(`^${name}=([^;]+)`));
+    if (match) return decodeURIComponent(match[1]);
+  }
+  return undefined;
+}
+
 describe('Auth API - /auth', () => {
   let app: Application;
 
@@ -23,8 +33,11 @@ describe('Auth API - /auth', () => {
         .send(credentials)
         .expect(200);
 
-      expect(response.body).toHaveProperty('accessToken');
-      expect(response.body).toHaveProperty('refreshToken');
+      // Los tokens se envían como cookies httpOnly, no en el body
+      const cookies = response.headers['set-cookie'] as string[] | undefined;
+      expect(extractCookie(cookies, 'accessToken')).toBeTruthy();
+      expect(extractCookie(cookies, 'refreshToken')).toBeTruthy();
+
       expect(response.body).toHaveProperty('user');
       expect(response.body.user).toHaveProperty('id');
       expect(response.body.user).toHaveProperty('username', 'admin');
@@ -125,7 +138,7 @@ describe('Auth API - /auth', () => {
     let validRefreshToken: string;
 
     beforeEach(async () => {
-      // Obtener refresh token válido mediante login
+      // Obtener refresh token válido mediante login (viene en cookie httpOnly)
       const response = await request(app)
         .post('/auth/login')
         .send({
@@ -133,7 +146,8 @@ describe('Auth API - /auth', () => {
           password: 'Admin123'
         });
       
-      validRefreshToken = response.body.refreshToken;
+      const cookies = response.headers['set-cookie'] as string[] | undefined;
+      validRefreshToken = extractCookie(cookies, 'refreshToken') ?? '';
     });
 
     it('debería generar nuevos tokens con refresh token válido y retornar 200', async () => {
@@ -142,17 +156,15 @@ describe('Auth API - /auth', () => {
         .send({ refreshToken: validRefreshToken })
         .expect(200);
 
-      expect(response.body).toHaveProperty('accessToken');
-      expect(response.body).toHaveProperty('refreshToken');
+      // Los tokens nuevos vienen en cookies httpOnly
+      const cookies = response.headers['set-cookie'] as string[] | undefined;
+      expect(extractCookie(cookies, 'accessToken')).toBeTruthy();
+      expect(extractCookie(cookies, 'refreshToken')).toBeTruthy();
+
       expect(response.body).toHaveProperty('user');
       expect(response.body.user).toHaveProperty('id');
       expect(response.body.user).toHaveProperty('username', 'admin');
       expect(response.body.user).not.toHaveProperty('password');
-      
-      // Los tokens son válidos (no verificamos si son diferentes porque
-      // pueden ser iguales si se generan en el mismo segundo)
-      expect(response.body.accessToken).toBeTruthy();
-      expect(response.body.refreshToken).toBeTruthy();
     });
 
     it('debería rechazar refresh token inválido con 401', async () => {
@@ -189,7 +201,7 @@ describe('Auth API - /auth', () => {
     });
 
     it('debería rechazar access token usado como refresh token con 401', async () => {
-      // Obtener access token
+      // Obtener access token desde cookie httpOnly
       const loginResponse = await request(app)
         .post('/auth/login')
         .send({
@@ -197,7 +209,8 @@ describe('Auth API - /auth', () => {
           password: 'Admin123'
         });
       
-      const accessToken = loginResponse.body.accessToken;
+      const loginCookies = loginResponse.headers['set-cookie'] as string[] | undefined;
+      const accessToken = extractCookie(loginCookies, 'accessToken') ?? '';
 
       const response = await request(app)
         .post('/auth/refresh')
@@ -213,7 +226,7 @@ describe('Auth API - /auth', () => {
     let validAccessToken: string;
 
     beforeEach(async () => {
-      // Obtener access token válido mediante login
+      // Obtener access token válido desde cookie httpOnly
       const response = await request(app)
         .post('/auth/login')
         .send({
@@ -221,7 +234,8 @@ describe('Auth API - /auth', () => {
           password: 'Admin123'
         });
       
-      validAccessToken = response.body.accessToken;
+      const cookies = response.headers['set-cookie'] as string[] | undefined;
+      validAccessToken = extractCookie(cookies, 'accessToken') ?? '';
     });
 
     it('debería validar access token válido y retornar info del usuario con 200', async () => {
@@ -272,7 +286,7 @@ describe('Auth API - /auth', () => {
     });
 
     it('debería rechazar refresh token usado como access token con 401', async () => {
-      // Obtener refresh token
+      // Obtener refresh token desde cookie httpOnly
       const loginResponse = await request(app)
         .post('/auth/login')
         .send({
@@ -280,7 +294,8 @@ describe('Auth API - /auth', () => {
           password: 'Admin123'
         });
       
-      const refreshToken = loginResponse.body.refreshToken;
+      const loginCookies = loginResponse.headers['set-cookie'] as string[] | undefined;
+      const refreshToken = extractCookie(loginCookies, 'refreshToken') ?? '';
 
       const response = await request(app)
         .post('/auth/validate')

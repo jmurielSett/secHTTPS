@@ -1,9 +1,9 @@
 import { NextFunction, Request, Response } from 'express';
 import {
-  LoginUseCase,
-  RefreshTokenUseCase,
-  RegisterUserUseCase,
-  ValidateTokenUseCase
+    LoginUseCase,
+    RefreshTokenUseCase,
+    RegisterUserUseCase,
+    ValidateTokenUseCase
 } from '../../../domain/usecases';
 import { Password, Token, Username } from '../../../domain/value-objects';
 
@@ -255,7 +255,7 @@ export class AuthController {
    * POST /auth/logout
    * Limpia las cookies de autenticación
    */
-  async logout(req: Request, res: Response, next: NextFunction): Promise<void> {
+  async logout(_req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       // Clear httpOnly cookies
       res.clearCookie('accessToken', {
