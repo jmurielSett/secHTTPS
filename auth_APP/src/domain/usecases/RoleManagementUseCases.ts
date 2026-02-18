@@ -1,5 +1,6 @@
 import { Pool } from 'pg';
 import { AssignRoleDTO, RevokeRoleDTO, RoleOperationResult } from '../../types/rbac';
+import { logInfo } from '../../utils/logger';
 
 /**
  * Assign Role Use Case
@@ -61,7 +62,7 @@ export class AssignRoleUseCase {
     // Invalidate user cache
     this.invalidateCache(userId);
 
-    console.log(`[RBAC] Assigned role '${roleName}' to user ${userId} in ${applicationName}`);
+    logInfo(`[RBAC] Assigned role '${roleName}' to user ${userId} in ${applicationName}`);
 
     return {
       success: true,
@@ -102,7 +103,7 @@ export class RevokeRoleUseCase {
     // Invalidate user cache even if no roles were revoked
     this.invalidateCache(userId);
 
-    console.log(`[RBAC] Revoked role '${roleName}' from user ${userId} in ${applicationName}`);
+    logInfo(`[RBAC] Revoked role '${roleName}' from user ${userId} in ${applicationName}`);
 
     return {
       success: true,
@@ -132,7 +133,7 @@ export class RevokeRoleUseCase {
     // Invalidate user cache
     this.invalidateCache(userId);
 
-    console.log(`[RBAC] Revoked ${deletedCount} roles from user ${userId} in ${applicationName}`);
+    logInfo(`[RBAC] Revoked ${deletedCount} roles from user ${userId} in ${applicationName}`);
 
     return {
       success: true,
@@ -155,7 +156,7 @@ export class RevokeRoleUseCase {
     // Invalidate user cache
     this.invalidateCache(userId);
 
-    console.log(`[RBAC] Revoked all ${deletedCount} roles from user ${userId}`);
+    logInfo(`[RBAC] Revoked all ${deletedCount} roles from user ${userId}`);
 
     return {
       success: true,

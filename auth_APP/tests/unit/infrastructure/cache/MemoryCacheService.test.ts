@@ -12,6 +12,7 @@ describe('MemoryCacheService', () => {
   });
 
   afterEach(() => {
+    cacheService.stop();
     vi.restoreAllMocks();
     vi.useRealTimers();
   });
@@ -243,8 +244,6 @@ describe('MemoryCacheService', () => {
 
   describe('Cleanup Periódico', () => {
     it('should clean expired entries automatically', () => {
-      const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
-      
       cacheService.set('key1', 'value1', 1); // 1 segundo
       cacheService.set('key2', 'value2', 1); // 1 segundo
       cacheService.set('key3', 'value3', 10); // 10 segundos
@@ -263,9 +262,6 @@ describe('MemoryCacheService', () => {
       // Cleanup eliminó expirados
       expect(cacheService.getStats().size).toBe(1);
       expect(cacheService.get('key3')).toBe('value3');
-      expect(consoleSpy).toHaveBeenCalledWith('[Cache] Cleaned 2 expired entries');
-      
-      consoleSpy.mockRestore();
     });
 
     it('should not clean non-expired entries', () => {

@@ -12,6 +12,11 @@ export default defineConfig({
   test: {
     globals: true,
     environment: 'node',
+    env: {
+      ADMIN_PASSWORD: 'Admin123',
+      ADMIN_USERNAME: 'admin',
+      ADMIN_EMAIL: 'admin@auth.com'
+    },
     coverage: {
       provider: 'v8',
       reporter: ['text', 'json', 'html'],

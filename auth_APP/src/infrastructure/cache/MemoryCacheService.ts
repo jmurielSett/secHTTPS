@@ -14,6 +14,7 @@ export class MemoryCacheService {
   private readonly cache: Map<string, CacheEntry<any>> = new Map();
   private readonly defaultTTL: number; // milliseconds
   private readonly maxSize: number;
+  private readonly cleanupInterval: ReturnType<typeof setInterval>;
 
   constructor(
     defaultTTLSeconds: number = 120, 
@@ -24,7 +25,14 @@ export class MemoryCacheService {
     this.maxSize = maxSize;
 
     // Clean expired entries periodically (removes already-expired entries)
-    setInterval(() => this.cleanExpired(), cleanupIntervalMs);
+    this.cleanupInterval = setInterval(() => this.cleanExpired(), cleanupIntervalMs);
+  }
+
+  /**
+   * Stop the cleanup interval (call on teardown to avoid timer leaks)
+   */
+  stop(): void {
+    clearInterval(this.cleanupInterval);
   }
 
   /**
@@ -130,7 +138,7 @@ export class MemoryCacheService {
     }
 
     if (cleanedCount > 0) {
-      console.log(`[Cache] Cleaned ${cleanedCount} expired entries`);
+      // logDebug(`[Cache] Cleaned ${cleanedCount} expired entries`);
     }
   }
 

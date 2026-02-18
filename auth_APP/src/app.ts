@@ -16,7 +16,7 @@ import { PasswordHasher } from './infrastructure/security/PasswordHasher';
 import { createAdminRouter } from './infrastructure/transport/routes/adminRoutes';
 import { createAuthRouter } from './infrastructure/transport/routes/authRoutes';
 import { CACHE_CONFIG } from './types/shared';
-import { logError } from './utils/logger';
+import { logDebug, logError, logInfo } from './utils/logger';
 
 // Cargar variables de entorno
 dotenv.config();
@@ -76,23 +76,23 @@ export async function createApp(usePostgres: boolean = false): Promise<AppContex
   // Create repository instances based on configuration
   let userRepository: IUserRepository;
   
-  console.log(`🔍 DEBUG: usePostgres=${usePostgres}, pool=${pool ? 'defined' : 'undefined'}`);
+  logDebug(`usePostgres=${usePostgres}, pool=${pool ? 'defined' : 'undefined'}`);
   
   if (usePostgres && pool) {
-    console.log('🔧 Using PostgreSQL repository and seeding admin user...');
+    logInfo('🔧 Using PostgreSQL repository and seeding admin user...');
     userRepository = new PostgresUserRepository(pool);
     
     // Seed admin user in PostgreSQL with RBAC roles (if not exists)
     try {
       await seedAdminUser(pool);
-      console.log('✅ PostgreSQL admin user seed completed');
+      logInfo('✅ PostgreSQL admin user seed completed');
     } catch (err) {
       logError('❌ Error seeding admin user:', err instanceof Error ? err : undefined);
       throw err;
     }
     
   } else {
-    console.log('🔧 Using In-Memory repository...');
+    logInfo('🔧 Using In-Memory repository...');
     userRepository = new InMemoryUserRepository();
     
     // Seed admin user in memory for testing
@@ -100,7 +100,10 @@ export async function createApp(usePostgres: boolean = false): Promise<AppContex
     const { UserRole } = await import('./types/user');
     
     const adminId = UserId.generate();
-    const adminPassword = process.env.ADMIN_PASSWORD || 'Admin123';
+    const adminPassword = process.env.ADMIN_PASSWORD;
+    if (!adminPassword) {
+      throw new Error('ADMIN_PASSWORD environment variable is required but not set');
+    }
     const hashedPassword = await passwordHasher.hash(adminPassword);
     
     await userRepository.create({
@@ -112,7 +115,7 @@ export async function createApp(usePostgres: boolean = false): Promise<AppContex
       createdAt: new Date().toISOString()
     });
     
-    console.log('✓ In-memory admin user created for testing');
+    logInfo('✓ In-memory admin user created for testing');
   }
   
   // Mount routes
@@ -122,7 +125,7 @@ export async function createApp(usePostgres: boolean = false): Promise<AppContex
   if (usePostgres && pool) {
     const verifyAccessUseCase = new VerifyUserAccessUseCase(userRepository, cacheService);
     app.use('/admin', createAdminRouter(pool, verifyAccessUseCase, userRepository, passwordHasher));
-    console.log('✓ Admin routes mounted at /admin');
+    logInfo('✓ Admin routes mounted at /admin');
   }
   
   // Error handler middleware (debe ir al final)

@@ -1,5 +1,6 @@
 import cron, { ScheduledTask } from 'node-cron';
 import { SendCertificateNotificationsUseCase } from '../../domain/usecases/notifications/SendCertificateNotificationsUseCase';
+import { logError, logInfo, logWarn } from '../../utils/logger';
 
 /**
  * Scheduler que ejecuta el proceso de notificaciones de certificados
@@ -32,7 +33,7 @@ export class NotificationSchedulerJob {
    */
   start(): void {
     if (this.job) {
-      console.warn('⚠️ Notification scheduler ya está en ejecución');
+      logWarn('⚠️ Notification scheduler ya está en ejecución');
       return;
     }
 
@@ -52,7 +53,7 @@ export class NotificationSchedulerJob {
       }
     );
 
-    console.log(`✅ Notification scheduler iniciado: ${this.cronExpression} (${process.env.TIMEZONE || 'Europe/Madrid'})`);
+    logInfo(`✅ Notification scheduler iniciado: ${this.cronExpression} (${process.env.TIMEZONE || 'Europe/Madrid'})`);
     this.logNextExecution();
   }
 
@@ -63,7 +64,7 @@ export class NotificationSchedulerJob {
     if (this.job) {
       this.job.stop();
       this.job = null;
-      console.log('🛑 Notification scheduler detenido');
+      logInfo('🛑 Notification scheduler detenido');
     }
   }
 
@@ -72,7 +73,7 @@ export class NotificationSchedulerJob {
    * (útil para testing o ejecución manual)
    */
   async executeNow(): Promise<void> {
-    console.log('🔄 Ejecutando proceso de notificaciones manualmente...');
+    logInfo('🔄 Ejecutando proceso de notificaciones manualmente...');
     await this.executeNotificationProcess();
   }
 
@@ -81,41 +82,41 @@ export class NotificationSchedulerJob {
    */
   private async executeNotificationProcess(): Promise<void> {
     const startTime = Date.now();
-    console.log('\n' + '='.repeat(60));
-    console.log('📧 Iniciando proceso de notificaciones de certificados');
-    console.log('='.repeat(60));
+    logInfo('\n' + '='.repeat(60));
+    logInfo('📧 Iniciando proceso de notificaciones de certificados');
+    logInfo('='.repeat(60));
 
     try {
       const summary = await this.useCase.execute();
 
       const duration = Date.now() - startTime;
 
-      console.log('\n📊 Resumen de Ejecución:');
-      console.log(`   Hora: ${new Date(summary.executedAt).toLocaleString()}`);
-      console.log(`   Certificados verificados: ${summary.totalCertificatesChecked}`);
-      console.log(`   Certificados pendientes: ${summary.totalCertificatesNeedingNotification}`);
-      console.log(`   ✅ Notificaciones enviadas: ${summary.totalNotificationsSent}`);
-      console.log(`   ❌ Notificaciones fallidas: ${summary.totalNotificationsFailed}`);
-      console.log(`   ⏱️  Duración: ${duration}ms`);
+      logInfo('\n📊 Resumen de Ejecución:');
+      logInfo(`   Hora: ${new Date(summary.executedAt).toLocaleString()}`);
+      logInfo(`   Certificados verificados: ${summary.totalCertificatesChecked}`);
+      logInfo(`   Certificados pendientes: ${summary.totalCertificatesNeedingNotification}`);
+      logInfo(`   ✅ Notificaciones enviadas: ${summary.totalNotificationsSent}`);
+      logInfo(`   ❌ Notificaciones fallidas: ${summary.totalNotificationsFailed}`);
+      logInfo(`   ⏱️  Duración: ${duration}ms`);
 
       if (summary.results.length > 0) {
-        console.log('\n📝 Detalle de Notificaciones:');
+        logInfo('\n📝 Detalle de Notificaciones:');
         for (const result of summary.results) {
           const icon = result.success ? '✅' : '❌';
           const status = result.success ? 'Enviado' : `Error: ${result.error}`;
-          console.log(`   ${icon} ${result.certificateFileName} (${result.certificateId}): ${status}`);
+          logInfo(`   ${icon} ${result.certificateFileName} (${result.certificateId}): ${status}`);
         }
       } else {
-        console.log('\n✨ No hay certificados que requieran notificación en este momento');
+        logInfo('\n✨ No hay certificados que requieran notificación en este momento');
       }
 
-      console.log('='.repeat(60));
-      console.log('✅ Proceso de notificaciones completado exitosamente\n');
+      logInfo('='.repeat(60));
+      logInfo('✅ Proceso de notificaciones completado exitosamente\n');
       
       this.logNextExecution();
     } catch (error) {
-      console.error('\n❌ Error en proceso de notificaciones:', error);
-      console.error('='.repeat(60) + '\n');
+      logError('\n❌ Error en proceso de notificaciones:', error instanceof Error ? error : undefined);
+      logError('='.repeat(60));
     }
   }
 
@@ -128,7 +129,7 @@ export class NotificationSchedulerJob {
     // Calcular próxima ejecución (aproximado)
     const next = this.getNextExecutionTime();
     if (next) {
-      console.log(`⏰ Próxima ejecución: ${next.toLocaleString()}\n`);
+      logInfo(`⏰ Próxima ejecución: ${next.toLocaleString()}\n`);
     }
   }
 

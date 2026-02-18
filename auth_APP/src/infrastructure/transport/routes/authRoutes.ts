@@ -10,6 +10,7 @@ import {
     RegisterUserUseCase,
     ValidateTokenUseCase
 } from '../../../domain/usecases';
+import { logInfo } from '../../../utils/logger';
 import { InMemoryApplicationRepository } from '../../persistence/InMemoryApplicationRepository';
 import { PostgresApplicationRepository } from '../../persistence/PostgresApplicationRepository';
 import { DatabaseAuthenticationProvider } from '../../security/DatabaseAuthenticationProvider';
@@ -32,22 +33,22 @@ export function createAuthRouter(
   if (AUTH_CONFIG.enableLDAP && LDAP_CONFIG.length > 0) {
     const ldapProvider = new LDAPAuthenticationProvider(LDAP_CONFIG, 'LDAP');
     authProviders.push(ldapProvider);
-    console.log(`[Auth] LDAP authentication enabled with ${LDAP_CONFIG.length} server(s)`);
+    logInfo(`[Auth] LDAP authentication enabled with ${LDAP_CONFIG.length} server(s)`);
   }
 
   // 2. Database Provider (fallback)
   const dbProvider = new DatabaseAuthenticationProvider(userRepository, passwordHasher);
   authProviders.push(dbProvider);
-  console.log('[Auth] Database authentication enabled');
+  logInfo('[Auth] Database authentication enabled');
 
   // Create ApplicationRepository (for LDAP sync per-application configuration)
   let applicationRepository: IApplicationRepository | null = null;
   if (pool) {
     applicationRepository = new PostgresApplicationRepository(pool);
-    console.log('[Auth] Using PostgreSQL application repository');
+    logInfo('[Auth] Using PostgreSQL application repository');
   } else {
     applicationRepository = new InMemoryApplicationRepository();
-    console.log('[Auth] Using in-memory application repository');
+    logInfo('[Auth] Using in-memory application repository');
   }
 
   // Create AssignRoleUseCase if pool is available (for LDAP user sync)
@@ -55,10 +56,10 @@ export function createAuthRouter(
   if (pool) {
     // Dummy invalidate cache function (could be improved with actual cache service)
     const invalidateCache = (userId: string) => {
-      console.log(`[Cache] Invalidated cache for user ${userId}`);
+      logInfo(`[Cache] Invalidated cache for user ${userId}`);
     };
     assignRoleUseCase = new AssignRoleUseCase(pool, invalidateCache);
-    console.log('[Auth] LDAP user sync enabled with role assignment');
+    logInfo('[Auth] LDAP user sync enabled with role assignment');
   }
 
   // Crear instancias de los casos de uso

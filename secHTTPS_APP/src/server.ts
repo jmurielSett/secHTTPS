@@ -6,6 +6,7 @@ import { SendCertificateNotificationsUseCase } from './domain/usecases/notificat
 import { LocalizationService } from './infrastructure/localization/LocalizationService';
 import { NodemailerEmailService } from './infrastructure/messaging/NodemailerEmailService';
 import { NotificationSchedulerJob } from './infrastructure/scheduling/NotificationSchedulerJob';
+import { logError, logInfo, logWarn } from './utils/logger';
 
 const PORT = process.env.PORT || 3000;
 const USE_POSTGRES = process.env.USE_POSTGRES === 'true';
@@ -19,8 +20,8 @@ void (async () => {
 
     // Start HTTP server
     app.listen(PORT, () => {
-      console.log(`Server is running on http://localhost:${PORT}`);
-      console.log(`Using ${USE_POSTGRES ? 'PostgreSQL' : 'In-Memory'} repository`);
+      logInfo(`Server is running on http://localhost:${PORT}`);
+      logInfo(`Using ${USE_POSTGRES ? 'PostgreSQL' : 'In-Memory'} repository`);
     });
 
     // Initialize notification scheduler if enabled
@@ -31,7 +32,7 @@ void (async () => {
         const isSmtpValid = await emailService.verifyConnection();
 
         if (isSmtpValid) {
-          console.log(`✅ SMTP configurado correctamente (${process.env.SMTP_HOST})`);
+          logInfo(`✅ SMTP configurado correctamente (${process.env.SMTP_HOST})`);
           
           // Create services
           const localizationService = new LocalizationService();
@@ -50,29 +51,29 @@ void (async () => {
 
           // Graceful shutdown
           process.on('SIGINT', () => {
-            console.log('\n🛑 Shutting down gracefully...');
+            logInfo('\n🛑 Shutting down gracefully...');
             scheduler.stop();
             process.exit(0);
           });
 
           process.on('SIGTERM', () => {
-            console.log('\n🛑 Shutting down gracefully...');
+            logInfo('\n🛑 Shutting down gracefully...');
             scheduler.stop();
             process.exit(0);
           });
         } else {
-          console.warn('⚠️ SMTP configuration is invalid. Scheduler will not be started.');
-          console.warn('⚠️ Please check your SMTP settings in .env file.');
+          logWarn('⚠️ SMTP configuration is invalid. Scheduler will not be started.');
+          logWarn('⚠️ Please check your SMTP settings in .env file.');
         }
       } catch (error) {
-        console.error('❌ Error initializing notification scheduler:', error);
-        console.warn('⚠️ Server will continue without automatic notifications.');
+        logError('❌ Error initializing notification scheduler:', error instanceof Error ? error : undefined);
+        logWarn('⚠️ Server will continue without automatic notifications.');
       }
     } else {
-      console.log('ℹ️ Notification scheduler is disabled (ENABLE_SCHEDULER=false)');
+      logInfo('ℹ️ Notification scheduler is disabled (ENABLE_SCHEDULER=false)');
     }
   } catch (error) {
-    console.error('Failed to start server:', error);
+    logError('Failed to start server:', error instanceof Error ? error : undefined);
     process.exit(1);
   }
 })();

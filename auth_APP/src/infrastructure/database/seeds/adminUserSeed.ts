@@ -1,5 +1,5 @@
 import { Pool } from 'pg';
-import { logError } from '../../../utils/logger';
+import { logError, logInfo } from '../../../utils/logger';
 import { PasswordHasher } from '../../security/PasswordHasher';
 
 /**
@@ -9,7 +9,10 @@ import { PasswordHasher } from '../../security/PasswordHasher';
 export async function seedAdminUser(pool: Pool): Promise<void> {
   const username = process.env.ADMIN_USERNAME || 'admin';
   const email = process.env.ADMIN_EMAIL || 'admin@auth.com';
-  const password = process.env.ADMIN_PASSWORD || 'Admin123';
+  const password = process.env.ADMIN_PASSWORD;
+  if (!password) {
+    throw new Error('ADMIN_PASSWORD environment variable is required but not set');
+  }
   
   try {
     // Check if admin user already exists
@@ -19,7 +22,7 @@ export async function seedAdminUser(pool: Pool): Promise<void> {
     );
     
     if (existingUser.rows.length > 0) {
-      console.log(`✓ Admin user '${username}' already exists`);
+      logInfo(`✓ Admin user '${username}' already exists`);
       return;
     }
     
@@ -34,7 +37,7 @@ export async function seedAdminUser(pool: Pool): Promise<void> {
     );
     
     const userId = userResult.rows[0].id;
-    console.log(`✓ Admin user '${username}' created with ID ${userId}`);
+    logInfo(`✓ Admin user '${username}' created with ID ${userId}`);
     
     // Assign 'admin' role in secHTTPS_APP
     await pool.query(`
@@ -50,7 +53,7 @@ export async function seedAdminUser(pool: Pool): Promise<void> {
       )
     `, [userId]);
     
-    console.log(`✓ Admin role assigned in secHTTPS_APP`);
+    logInfo(`✓ Admin role assigned in secHTTPS_APP`);
     
     // Assign 'super_admin' role in auth_APP
     await pool.query(`
@@ -66,8 +69,8 @@ export async function seedAdminUser(pool: Pool): Promise<void> {
       )
     `, [userId]);
     
-    console.log(`✓ Super_admin role assigned in auth_APP`);
-    console.log(`✓ Admin user fully configured with RBAC roles`);
+    logInfo(`✓ Super_admin role assigned in auth_APP`);
+    logInfo(`✓ Admin user fully configured with RBAC roles`);
     
   } catch (err) {
     logError('Error seeding admin user:', err instanceof Error ? err : undefined);
