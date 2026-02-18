@@ -234,12 +234,7 @@ export function CertificateModal({ certificate, onClose, canUpdate, canDelete, o
                   <span style={{ fontSize: '1.1em', lineHeight: 1, display: 'inline-block' }}>💾</span>
                   <span style={{ display: 'inline-block' }}>Guardar Cambios</span>
                 </button>
-                <button className="close-button" onClick={() => {
-                  setIsEditing(false);
-                  setTimeout(() => {
-                    onClose();
-                  }, 0);
-                }}>×</button>
+                <button className="close-button" onClick={() => setIsEditing(false)}>×</button>
               </div>
             </div>
             <div className="create-modal-body">
@@ -401,13 +396,13 @@ export function CertificateModal({ certificate, onClose, canUpdate, canDelete, o
                 }, 0);
               }}>Cerrar</button>
               <div style={{ display: 'flex', gap: '0.4rem' }}>
-                {canUpdate && (
+                {canUpdate && localCertificate.status === CertificateStatus.ACTIVE && (
                   <button className="btn-edit" onClick={() => setIsEditing(true)}>
                     <span style={{ fontSize: '1.1em', lineHeight: 1 }}>{'✏️'}</span>
                     {' '}Editar Certificado
                   </button>
                 )}
-                {canDelete && (
+                {canDelete && localCertificate.status === CertificateStatus.ACTIVE && (
                   <button
                     className="btn-danger"
                     onClick={() => setShowDeleteConfirm(true)}

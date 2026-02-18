@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { CertificateStatus } from '../../../src/types/certificate';
 import { usePermissions } from '../hooks/usePermissions';
 import { trpc } from '../utils/trpc';
 import { CertificateCard } from './CertificateCard';
@@ -76,7 +77,14 @@ export function CertificatesList({ onLogout, showServerError }: Readonly<Certifi
           {certificatesQuery.data && (
             <div className="certificates-count">
               {hasActiveFilters ? (
-                <>Mostrando {certificatesQuery.data.total} certificado{certificatesQuery.data.total === 1 ? '' : 's'} </>
+                <>Mostrando {certificatesQuery.data.total} certificado{certificatesQuery.data.total === 1 ? '' : 's'}{' '}
+                  {filters.status === CertificateStatus.ACTIVE && (
+                    <span style={{ color: '#16a34a', fontWeight: 600 }}>activo{certificatesQuery.data.total === 1 ? '' : 's'}</span>
+                  )}
+                  {filters.status === CertificateStatus.DELETED && (
+                    <span style={{ color: '#dc2626', fontWeight: 600 }}>eliminado{certificatesQuery.data.total === 1 ? '' : 's'}</span>
+                  )}
+                </>
               ) : (
                 <>Total: {certificatesQuery.data.total} certificado{certificatesQuery.data.total === 1 ? '' : 's'}</>
               )}
