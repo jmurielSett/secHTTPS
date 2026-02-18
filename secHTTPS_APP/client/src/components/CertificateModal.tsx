@@ -131,8 +131,8 @@ export function CertificateModal({ certificate, onClose, canUpdate, canDelete }:
   };
 
   return (
-    <div className="certificate-modal-overlay">
-      <dialog className="create-certificate-modal-content" open>
+    <div className="create-certificate-modal-overlay">
+      <div className="create-certificate-modal-content">
         <div className="modal-header">
           <h2>📄 {localCertificate.fileName}</h2>
           <button className="modal-close" onClick={() => {
@@ -143,78 +143,76 @@ export function CertificateModal({ certificate, onClose, canUpdate, canDelete }:
           }}>✕</button>
         </div>
         {isEditing ? (
-          <div className="create-certificate-modal-overlay">
-            <div className="create-certificate-modal-content">
-              <div className="create-modal-header" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16 }}>
-                <h2 style={{ color: '#6c63ff', fontWeight: 600, fontSize: 24, display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <span style={{ fontSize: 22 }}>✏️</span> Editar Certificado
-                </h2>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                  <button
-                    className="create-btn"
-                    type="button"
-                    onClick={() => formRef.current?.submit()}
-                    disabled={isSubmitting || updateCertificateMutation.status === 'pending'}
-                    style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
-                  >
-                    <span style={{ fontSize: '1.1em', lineHeight: 1, display: 'inline-block' }}>💾</span>
-                    <span style={{ display: 'inline-block' }}>Guardar Cambios</span>
-                  </button>
-                  <button className="close-button" onClick={() => {
-                    setIsEditing(false);
-                    setTimeout(() => {
-                      onClose();
-                    }, 0);
-                  }}>×</button>
-                </div>
-              </div>
-              <div className="create-modal-body">
-                <CertificateForm
-                  ref={formRef}
-                  initialData={{
-                    fileName: localCertificate.fileName,
-                    client: localCertificate.client,
-                    server: localCertificate.server,
-                    startDate: localCertificate.startDate.split('T')[0],
-                    expirationDate: localCertificate.expirationDate.split('T')[0],
-                    filePath: localCertificate.filePath,
-                    configPath: localCertificate.configPath,
-                    responsibleContacts: localCertificate.responsibleContacts,
-                  }}
-                  isSubmitting={isSubmitting || updateCertificateMutation.status === 'pending'}
-                  submitLabel="Guardar Cambios"
-                  onCancel={() => setIsEditing(false)}
-                  onSubmit={async (data: CertificateFormData) => {
-                    setIsSubmitting(true);
-                    try {
-                      const result = await updateCertificateMutation.mutateAsync({
-                        id: localCertificate.id,
-                        data: {
-                          ...data,
-                        },
-                      });
-                      // Update local certificate state with new data
-                      setLocalCertificate(prev => ({
-                        ...prev,
-                        ...data,
-                        // Optionally, merge result if backend returns updated fields
-                        ...(result ?? {}),
-                      }));
-                      setIsEditing(false);
-                      if (utils.certificate?.getCertificates?.invalidate) {
-                        await utils.certificate.getCertificates.invalidate();
-                      }
-                    } catch (err) {
-                      alert('Error al actualizar el certificado. Inténtalo de nuevo.');
-                      console.error('Error al actualizar certificado', err);
-                    } finally {
-                      setIsSubmitting(false);
-                    }
-                  }}
-                />
+          <>
+            <div className="create-modal-header" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16 }}>
+              <h2 style={{ color: '#6c63ff', fontWeight: 600, fontSize: 24, display: 'flex', alignItems: 'center', gap: 8 }}>
+                <span style={{ fontSize: 22 }}>✏️</span> Editar Certificado
+              </h2>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                <button
+                  className="create-btn"
+                  type="button"
+                  onClick={() => formRef.current?.submit()}
+                  disabled={isSubmitting || updateCertificateMutation.status === 'pending'}
+                  style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
+                >
+                  <span style={{ fontSize: '1.1em', lineHeight: 1, display: 'inline-block' }}>💾</span>
+                  <span style={{ display: 'inline-block' }}>Guardar Cambios</span>
+                </button>
+                <button className="close-button" onClick={() => {
+                  setIsEditing(false);
+                  setTimeout(() => {
+                    onClose();
+                  }, 0);
+                }}>×</button>
               </div>
             </div>
-          </div>
+            <div className="create-modal-body">
+              <CertificateForm
+                ref={formRef}
+                initialData={{
+                  fileName: localCertificate.fileName,
+                  client: localCertificate.client,
+                  server: localCertificate.server,
+                  startDate: localCertificate.startDate.split('T')[0],
+                  expirationDate: localCertificate.expirationDate.split('T')[0],
+                  filePath: localCertificate.filePath,
+                  configPath: localCertificate.configPath,
+                  responsibleContacts: localCertificate.responsibleContacts,
+                }}
+                isSubmitting={isSubmitting || updateCertificateMutation.status === 'pending'}
+                submitLabel="Guardar Cambios"
+                onCancel={() => setIsEditing(false)}
+                onSubmit={async (data: CertificateFormData) => {
+                  setIsSubmitting(true);
+                  try {
+                    const result = await updateCertificateMutation.mutateAsync({
+                      id: localCertificate.id,
+                      data: {
+                        ...data,
+                      },
+                    });
+                    // Update local certificate state with new data
+                    setLocalCertificate(prev => ({
+                      ...prev,
+                      ...data,
+                      // Optionally, merge result if backend returns updated fields
+                      ...(result ?? {}),
+                    }));
+                    setIsEditing(false);
+                    if (utils.certificate?.getCertificates?.invalidate) {
+                      await utils.certificate.getCertificates.invalidate();
+                    }
+                  } catch (err) {
+                    alert('Error al actualizar el certificado. Inténtalo de nuevo.');
+                    console.error('Error al actualizar certificado', err);
+                  } finally {
+                    setIsSubmitting(false);
+                  }
+                }}
+              />
+            </div>
+          </>
         ) : (
           <>
             <div className="modal-body">
@@ -345,7 +343,7 @@ export function CertificateModal({ certificate, onClose, canUpdate, canDelete }:
             </div>
           </>
         )}
-        </dialog>
+      </div>
     </div>
   );
 }
