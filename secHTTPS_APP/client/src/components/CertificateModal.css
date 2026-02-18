@@ -45,12 +45,17 @@
 .modal-close {
   background: transparent;
   border: none;
+  outline: none;
   font-size: 1.5rem;
   cursor: pointer;
   color: rgba(0, 0, 0, 0.5);
   padding: 0.25rem 0.5rem;
   border-radius: 4px;
   transition: all 0.2s;
+}
+
+.modal-close:focus {
+  outline: none;
 }
 
 .modal-close:hover {
