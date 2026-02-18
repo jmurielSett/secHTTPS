@@ -1,4 +1,5 @@
 import React, { useRef, useState } from 'react';
+import { clientError } from '../utils/logger';
 import { CertificateForm, CertificateFormData, CertificateFormHandle } from './CertificateForm';
 import './CreateCertificateModal.css';
 
@@ -87,7 +88,7 @@ export const CreateCertificateModal: React.FC<CreateCertificateModalProps> = ({ 
                 onClose();
               } catch (error) {
                 alert('Error al crear el certificado. Inténtelo de nuevo.');
-                console.error('Error al crear certificado:', error);
+                clientError('Error al crear certificado', error);
               } finally {
                 setIsSubmitting(false);
               }

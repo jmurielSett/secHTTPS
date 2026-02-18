@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { clientError, clientLog } from '../utils/logger';
 import './Login.css';
 import { ServerErrorModal } from './ServerErrorModal';
 
@@ -50,7 +51,7 @@ export function Login({ onLoginSuccess }: Readonly<LoginProps>) {
           setUsername(user.username);
         }
       } catch (e) {
-        console.error('Error al parsear datos de usuario:', e);
+        clientError('Error al parsear datos de usuario', e);
       }
     }
 
@@ -71,7 +72,7 @@ export function Login({ onLoginSuccess }: Readonly<LoginProps>) {
           localStorage.removeItem('loginLockout');
         }
       } catch (e) {
-        console.error('Error al parsear lockout:', e);
+        clientError('Error al parsear lockout', e);
       }
     }
   }, []);
@@ -164,7 +165,7 @@ export function Login({ onLoginSuccess }: Readonly<LoginProps>) {
   };
 
   const processLoginError = (err: any) => {
-    console.error('❌ Error en login', err);
+    clientError('Error en login', err);
     
     // Manejar bloqueo de cuenta
     if (err.message === 'ACCOUNT_LOCKED') {
@@ -254,7 +255,7 @@ export function Login({ onLoginSuccess }: Readonly<LoginProps>) {
       try {
         await verifyBackendConnection();
       } catch (backendError: unknown) {
-        console.error('❌ Error al verificar conexión con backend', backendError);
+        clientError('Error al verificar conexión con backend', backendError);
         throw new Error('CONNECTION_ERROR'); // Marcador especial para errores de conexión
       }
 
@@ -262,7 +263,7 @@ export function Login({ onLoginSuccess }: Readonly<LoginProps>) {
       // Los roles y datos del usuario se obtienen del token httpOnly cookie
       localStorage.setItem('hasSession', 'true');
 
-      console.log('✅ Login exitoso');
+      clientLog('Login exitoso');
       
       // Resetear todos los contadores al tener éxito
       resetCounters();

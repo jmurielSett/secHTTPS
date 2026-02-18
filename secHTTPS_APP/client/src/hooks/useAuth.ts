@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { clientError } from '../utils/logger';
 import { trpc } from '../utils/trpc';
 
 const AUTH_APP_URL = import.meta.env.VITE_AUTH_APP_URL || 'http://localhost:4000';
@@ -73,7 +74,7 @@ export function useAuth(): UseAuthReturn {
         credentials: 'include'
       });
     } catch (error) {
-      console.error('Error en logout:', error);
+      clientError('Error en logout', error);
     } finally {
       // Limpiar flag de sesión (NO guardamos datos sensibles)
       localStorage.removeItem('hasSession');

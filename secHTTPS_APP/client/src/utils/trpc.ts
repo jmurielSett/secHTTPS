@@ -5,6 +5,7 @@
 import { httpBatchLink } from '@trpc/client';
 import { createTRPCReact } from '@trpc/react-query';
 import type { AppRouter } from '../../../src/infrastructure/trpc/routers';
+import { clientError, clientLog, clientWarn } from './logger';
 
 const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3000';
 const AUTH_APP_URL = import.meta.env.VITE_AUTH_APP_URL || 'http://localhost:4000';
@@ -29,10 +30,10 @@ async function refreshTokens(): Promise<boolean> {
       return false;
     }
 
-    console.log('🔄 Tokens renovados automáticamente');
+    clientLog('Tokens renovados automáticamente');
     return true;
   } catch (error) {
-    console.error('❌ Error al renovar tokens:', error);
+    clientError('Error al renovar tokens', error);
     return false;
   }
 }
@@ -48,20 +49,20 @@ async function fetchWithAutoRefresh(url: RequestInfo | URL, options?: RequestIni
 
   // Si es 401 (token expirado), intentar refresh
   if (response.status === 401) {
-    console.log('⚠️ Access token expirado, intentando refresh...');
+    clientWarn('Access token expirado, intentando refresh');
     
     const refreshed = await refreshTokens();
     
     if (refreshed) {
       // Reintentar petición original con nuevo token
-      console.log('✅ Reintentando petición original...');
+      clientLog('Reintentando petición original');
       return fetch(url, {
         ...options,
         credentials: 'include',
       });
     } else {
       // Refresh falló, limpiar sesión
-      console.log('❌ Refresh token expirado, cerrando sesión...');
+      clientWarn('Refresh token expirado, cerrando sesión');
       localStorage.removeItem('hasSession');
       globalThis.location.href = '/?sessionExpired=true'; // Redirigir a login con aviso
     }

@@ -21,13 +21,13 @@ secHTTPS_APP es una aplicación web completa (**cliente + servidor**) que permit
 ```mermaid
 graph LR
     subgraph Cliente["Cliente (React + Vite :5173)"]
+        LOGIN[Login Component]
         UI[Componentes React]
-        TQ[TanStack Query]
-        TC[tRPC Client]
+        TC[tRPC Client + TanStack Query]
     end
 
-    subgraph Servidor["Servidor (Express :3000)"]
-        MW[JWT Middleware]
+    subgraph Servidor["Servidor secHTTPS (Express :3000)"]
+        MW["JWT Middleware\n(verifica localmente)"]
         TR[tRPC Router]
         RT[REST API Routes]
         subgraph Domain["Dominio (Clean Architecture)"]
@@ -45,12 +45,15 @@ graph LR
         MEM[(InMemory)]
     end
 
-    AUTH_APP["auth_APP\n:4000 (JWT)"]
+    AUTH_APP["auth_APP\n:4000"]
 
+    LOGIN -- "POST /auth/login\nPOST /auth/logout\nPOST /auth/refresh" --> AUTH_APP
+    AUTH_APP -- "accessToken + refreshToken\n(httpOnly cookies)" --> LOGIN
+    LOGIN -- "autenticado" --> UI
     UI --> TC
-    TC --> TR
+    TC -- "/trpc (+ cookie accessToken)" --> TR
     TR --> MW
-    MW --> AUTH_APP
+    MW -- "jwt.verify(secret local)" --> TR
     TR --> UC_C
     TR --> UC_N
     RT --> UC_C
@@ -64,6 +67,8 @@ graph LR
     UC_N --> PG
     UC_N --> MEM
 ```
+
+> **Clave de seguridad:** El servidor `secHTTPS_APP` **nunca llama a `auth_APP`** en tiempo de petición. Verifica el JWT localmente usando el `JWT_ACCESS_SECRET` compartido. Es el **cliente** quien habla con `auth_APP` para login/logout/refresh, recibiendo cookies `httpOnly` que se envían automáticamente en cada petición tRPC.
 
 ### Capas (Clean Architecture)
 
@@ -241,6 +246,10 @@ npm run dev
 ## Variables de Entorno
 
 ```env
+# ─── Cliente (Vite) ────────────────────────────────
+VITE_BACKEND_URL=http://localhost:3000   # URL del servidor secHTTPS_APP
+VITE_AUTH_APP_URL=http://localhost:4000  # URL de auth_APP (login/logout/refresh)
+
 # ─── Servidor ──────────────────────────────────────
 PORT=3000
 NODE_ENV=development

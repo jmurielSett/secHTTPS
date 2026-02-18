@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { clientError } from '../utils/logger';
 
 interface UseServerConnectionProps {
   errors: unknown[];
@@ -71,7 +72,7 @@ export function useServerConnection({
       }
     } catch (error) {
       setRetryCount(prev => prev + 1);
-      console.error('Error al reintentar:', error);
+      clientError('Error al reintentar', error);
     } finally {
       setIsRetrying(false);
     }
