@@ -22,6 +22,7 @@ export function CertificatesList({ onLogout, showServerError }: Readonly<Certifi
   const [filtersCollapsed, setFiltersCollapsed] = useState(true);
   const [selectedCertificate, setSelectedCertificate] = useState<any>(null);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  const [deleteSuccessMsg, setDeleteSuccessMsg] = useState<string | null>(null);
   
   // Verificar permisos del usuario basados en roles del token JWT
   const { canCreateCertificates, canDeleteCertificates, canUpdateCertificates } = usePermissions();
@@ -47,6 +48,13 @@ export function CertificatesList({ onLogout, showServerError }: Readonly<Certifi
 
   const handleCreateSubmit = async (data: CreateCertificateData) => {
     await createCertificateMutation.mutateAsync(data);
+  };
+
+  const handleDeleteSuccess = (fileName: string) => {
+    setSelectedCertificate(null);
+    certificatesQuery.refetch();
+    setDeleteSuccessMsg(`El certificado "${fileName}" se ha eliminado correctamente.`);
+    setTimeout(() => setDeleteSuccessMsg(null), 5000);
   };
 
   const hasActiveFilters = Object.values(filters).some(value => value !== undefined && value !== '');
@@ -107,6 +115,22 @@ export function CertificatesList({ onLogout, showServerError }: Readonly<Certifi
       
       {/* Área scrollable: Lista de certificados */}
       <div className="certificates-scrollable">
+        {/* Banner de eliminación exitosa */}
+        {deleteSuccessMsg && (
+          <div style={{
+            background: '#e8f5e9', color: '#2e7d32', border: '1px solid #a5d6a7',
+            borderRadius: 8, padding: '12px 18px', marginBottom: 12,
+            display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12,
+            fontSize: 14, fontWeight: 500,
+          }}>
+            <span>✅ {deleteSuccessMsg}</span>
+            <button
+              onClick={() => setDeleteSuccessMsg(null)}
+              style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 16, lineHeight: 1, color: '#2e7d32' }}
+              aria-label="Cerrar"
+            >✕</button>
+          </div>
+        )}
         {/* Contenedor con position relative para el overlay */}
         <div style={{ position: 'relative', minHeight: '200px' }}>
           {/* Loading overlay durante carga o filtrado */}
@@ -172,6 +196,7 @@ export function CertificatesList({ onLogout, showServerError }: Readonly<Certifi
         onClose={() => setSelectedCertificate(null)}
         canUpdate={canUpdateCertificates}
         canDelete={canDeleteCertificates}
+        onDeleteSuccess={handleDeleteSuccess}
       />
 
       {/* Modal de creación */}
