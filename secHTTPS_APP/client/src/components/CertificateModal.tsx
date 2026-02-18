@@ -76,7 +76,7 @@ export function CertificateModal({ certificate, onClose, canUpdate, canDelete }:
   const [isSubmitting, setIsSubmitting] = useState(false);
   const utils = trpc.useUtils?.() || {};
   const updateCertificateMutation = trpc.certificate.updateCertificate.useMutation();
-  const [showAddContact, setShowAddContact] = useState(false);
+  // Removed unused showAddContact state
   const formRef = useRef<CertificateFormHandle>(null);
 
   if (!certificate) return null;
@@ -186,6 +186,7 @@ export function CertificateModal({ certificate, onClose, canUpdate, canDelete }:
                   submitLabel="Guardar Cambios"
                   onCancel={() => setIsEditing(false)}
                   onSubmit={async (data: CertificateFormData) => {
+                                      // readonly={false} (default is false)
                     setIsSubmitting(true);
                     try {
                       await updateCertificateMutation.mutateAsync({
@@ -272,54 +273,33 @@ export function CertificateModal({ certificate, onClose, canUpdate, canDelete }:
               <div className="modal-section">
                 <div className="section-header">
                   <h3>👥 Responsables</h3>
-                  {canUpdate && (
-                    <button 
-                      className="btn-add-contact" 
-                      onClick={() => setShowAddContact(!showAddContact)}
-                    >
-                      {showAddContact ? '✕ Cancelar' : '+ Añadir Responsable'}
-                    </button>
-                  )}
                 </div>
-
-                {/* Formulario añadir contacto */}
-                {/* Formulario añadir contacto (legacy, no funcional en modo edición) */}
-
-                {/* Tabla de responsables */}
-                {certificate.responsibleContacts.length > 0 ? (
-                  <div className="contacts-table-wrapper">
-                    <table className="contacts-table">
-                      <thead>
+                <div className="contacts-table-wrapper">
+                  <table className="contacts-table">
+                    <thead>
+                      <tr>
+                        <th>Idioma</th>
+                        <th>Nombre</th>
+                        <th>Email</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {certificate.responsibleContacts.length === 0 ? (
                         <tr>
-                          <th>Idioma</th>
-                          <th>Nombre</th>
-                          <th>Email</th>
-                          {canUpdate && <th>Acciones</th>}
+                          <td colSpan={3} style={{ textAlign: 'center', color: '#888', padding: 12 }}>No hay responsables asignados.</td>
                         </tr>
-                      </thead>
-                      <tbody>
-                        {certificate.responsibleContacts.map((contact) => (
-                          <tr key={contact.email}>
-                            <td className="flag-cell">
-                              <span className="flag" title={getLanguageName(contact.language)}>
-                                {getLanguageFlag(contact.language)}
-                              </span>
-                            </td>
-                            <td>{contact.name || '-'}</td>
+                      ) : (
+                        certificate.responsibleContacts.map((contact, idx) => (
+                          <tr key={contact.email + idx}>
+                            <td>{getLanguageFlag(contact.language)} {getLanguageName(contact.language)}</td>
+                            <td>{contact.name || <span style={{ color: '#aaa' }}>(Sin nombre)</span>}</td>
                             <td>{contact.email}</td>
-                            {canUpdate && (
-                              <td>
-                                <button className="btn-icon" title="Eliminar">🗑️</button>
-                              </td>
-                            )}
                           </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                ) : (
-                  <p className="no-contacts">No hay responsables asignados</p>
-                )}
+                        ))
+                      )}
+                    </tbody>
+                  </table>
+                </div>
               </div>
 
               {/* Metadatos */}
