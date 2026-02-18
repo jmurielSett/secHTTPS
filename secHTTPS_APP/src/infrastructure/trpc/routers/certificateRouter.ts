@@ -92,7 +92,7 @@ const createCertificateSchema = z.object({
   client: z.string().min(1, 'El cliente es obligatorio'),
   configPath: z.string().min(1, 'La ruta de configuración es obligatoria'),
   responsibleContacts: z.array(z.object({
-    email: z.string().email(),
+    email: z.email(),
     language: z.string().min(2, 'El idioma debe ser un código ISO de 2 letras'),
     name: z.string().optional()
   })).min(1, 'Debe haber al menos un contacto responsable')
@@ -110,7 +110,7 @@ const updateCertificateSchema = z.object({
   client: z.string().optional(),
   configPath: z.string().optional(),
   responsibleContacts: z.array(z.object({
-    email: z.string().email(),
+    email: z.email(),
     language: z.string().min(2, 'El idioma debe ser un código ISO de 2 letras'),
     name: z.string().optional()
   })).optional()
@@ -119,7 +119,23 @@ const updateCertificateSchema = z.object({
 /**
  * Router de certificados
  */
+import { UpdateCertificateStatusUseCase } from '../../../domain/usecases/certificates/UpdateCertificateStatusUseCase';
+
 export const certificateRouter = router({
+    /**
+     * Eliminar (soft delete) un certificado
+     * Mutation: /trpc/certificate.deleteCertificate
+     * 🔒 PROTEGIDO - Requiere autenticación
+     */
+    deleteCertificate: protectedProcedure
+      .input(z.object({ id: z.uuid() }))
+      .mutation(async ({ input, ctx }) => {
+        const updateCertificateStatusUseCase = new UpdateCertificateStatusUseCase(ctx.certificateRepository);
+        // Solo permite cambiar el status a DELETED
+        const { CertificateStatus } = await import('../../../types/certificate');
+        const certificate = await updateCertificateStatusUseCase.execute(input.id, { status: CertificateStatus.DELETED });
+        return certificate;
+      }),
   /**
    * Actualizar un certificado existente
    * Mutation: /trpc/certificate.updateCertificate
@@ -127,14 +143,16 @@ export const certificateRouter = router({
    */
   updateCertificate: protectedProcedure
     .input(z.object({
-      id: z.string().uuid(),
+      id: z.uuid(),
       data: updateCertificateSchema
     }))
     .mutation(async ({ input, ctx }) => {
       console.log(`[tRPC] User ${ctx.username} (${ctx.userId}) updating certificate ${input.id}`);
-      const updateCertificateUseCase = new (await import('../../../domain/usecases/certificates/UpdateCertificateUseCase')).UpdateCertificateUseCase(
+      const { UpdateCertificateUseCase } = await import('../../../domain/usecases/certificates/UpdateCertificateUseCase');
+      const { CertificateExpirationService } = await import('../../../domain/services/CertificateExpirationService');
+      const updateCertificateUseCase = new UpdateCertificateUseCase(
         ctx.certificateRepository,
-        ctx.expirationService
+        new CertificateExpirationService()
       );
       const certificate = await updateCertificateUseCase.execute(input.id, input.data);
       return certificate;
