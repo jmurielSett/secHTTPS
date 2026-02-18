@@ -47,7 +47,7 @@ export const CreateCertificateModal: React.FC<CreateCertificateModalProps> = ({ 
 
   return (
     <div className="create-certificate-modal-overlay">
-      <dialog className="create-certificate-modal-content" open>
+      <div className="create-certificate-modal-content">
         <div className="create-modal-header" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16 }}>
           <h2>✨ Crear Nuevo Certificado</h2>
           <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
@@ -94,7 +94,7 @@ export const CreateCertificateModal: React.FC<CreateCertificateModalProps> = ({ 
             }}
           />
         </div>
-      </dialog>
+      </div>
     </div>
   );
 };
