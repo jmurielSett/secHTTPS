@@ -4,20 +4,18 @@
  */
 import { router } from '../trpc';
 import { certificateRouter } from './certificateRouter';
+import { notificationRouter } from './notificationRouter';
 
 /**
  * Router principal de la aplicación
  * Todos los routers se exponen bajo su namespace:
  * - certificate.* -> operaciones de certificados
- * 
- * TODO: Agregar más routers según se necesiten:
- * - notification.* -> operaciones de notificaciones
- * - auth.* -> operaciones de autenticación (cuando se integre auth_APP)
+ * - notification.* -> operaciones de notificaciones (requiere notifications.read)
  */
 export const appRouter = router({
-  certificate: certificateRouter
-  // notification: notificationRouter,  // Futuro
-  // auth: authRouter,                   // Futuro - integración con auth_APP
+  certificate: certificateRouter,
+  notification: notificationRouter
+  // auth: authRouter,  // Futuro - integración con auth_APP
 });
 
 /**

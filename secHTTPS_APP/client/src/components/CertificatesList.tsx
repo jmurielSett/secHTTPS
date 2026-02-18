@@ -26,7 +26,7 @@ export function CertificatesList({ onLogout, showServerError }: Readonly<Certifi
   const [deleteSuccessMsg, setDeleteSuccessMsg] = useState<string | null>(null);
   
   // Verificar permisos del usuario basados en roles del token JWT
-  const { canCreateCertificates, canDeleteCertificates, canUpdateCertificates } = usePermissions();
+  const { canCreateCertificates, canDeleteCertificates, canUpdateCertificates, canReadNotifications } = usePermissions();
   
   // Obtener lista de certificados con filtros (requiere autenticación)
   const certificatesQuery = trpc.certificate.getCertificates.useQuery(filters);
@@ -177,7 +177,9 @@ export function CertificatesList({ onLogout, showServerError }: Readonly<Certifi
                 <>
                   {viewMode === 'cards' ? (
                     <div className="certificates-grid">
-                      {certificatesQuery.data.certificates.map((cert) => (
+                      {[...certificatesQuery.data.certificates]
+                        .sort((a, b) => new Date(a.expirationDate).getTime() - new Date(b.expirationDate).getTime())
+                        .map((cert) => (
                         <CertificateCard 
                           key={cert.id} 
                           certificate={cert}
@@ -204,6 +206,7 @@ export function CertificatesList({ onLogout, showServerError }: Readonly<Certifi
         onClose={() => setSelectedCertificate(null)}
         canUpdate={canUpdateCertificates}
         canDelete={canDeleteCertificates}
+        canReadNotifications={canReadNotifications}
         onDeleteSuccess={handleDeleteSuccess}
       />
 

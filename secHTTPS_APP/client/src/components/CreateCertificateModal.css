@@ -141,6 +141,7 @@
 .close-button {
   background: none;
   border: none;
+  outline: none;
   font-size: 2rem;
   color: rgba(0, 0, 0, 0.5);
   cursor: pointer;
@@ -152,6 +153,10 @@
   border-radius: 4px;
   transition: all 0.2s ease;
   line-height: 1;
+}
+
+.close-button:focus {
+  outline: none;
 }
 
 .close-button:hover {

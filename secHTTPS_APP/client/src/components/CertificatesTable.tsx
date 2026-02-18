@@ -1,5 +1,4 @@
 import { useState } from 'react';
-import { CertificateStatus } from '../../../src/types/certificate';
 import { ExpirationStatus } from '../../../src/types/shared';
 import './CertificatesTable.css';
 
@@ -15,7 +14,6 @@ interface Certificate {
   server: string;
   startDate: string;
   expirationDate: string;
-  status: CertificateStatus;
   expirationStatus: ExpirationStatus;
   responsibleContacts: Contact[];
 }
@@ -25,7 +23,7 @@ interface CertificatesTableProps {
   onRowClick?: (certificate: Certificate) => void;
 }
 
-type SortKey = 'fileName' | 'client' | 'server' | 'expirationDate' | 'status';
+type SortKey = 'fileName' | 'client' | 'server' | 'expirationDate' | 'expirationStatus';
 type SortDirection = 'asc' | 'desc';
 
 function SortIcon({ columnKey, sortKey, sortDirection }: Readonly<{ columnKey: SortKey; sortKey: SortKey; sortDirection: SortDirection }>) {
@@ -101,10 +99,10 @@ export function CertificatesTable({ certificates, onRowClick }: Readonly<Certifi
               Servidor <SortIcon columnKey="server" sortKey={sortKey} sortDirection={sortDirection} />
             </th>
             <th onClick={() => handleSort('expirationDate')} className="sortable">
-              Expiración <SortIcon columnKey="expirationDate" sortKey={sortKey} sortDirection={sortDirection} />
+              F. Expiración <SortIcon columnKey="expirationDate" sortKey={sortKey} sortDirection={sortDirection} />
             </th>
-            <th onClick={() => handleSort('status')} className="sortable">
-              Estado <SortIcon columnKey="status" sortKey={sortKey} sortDirection={sortDirection} />
+            <th onClick={() => handleSort('expirationStatus')} className="sortable">
+              Estado <SortIcon columnKey="expirationStatus" sortKey={sortKey} sortDirection={sortDirection} />
             </th>
             <th>Responsables</th>
           </tr>
@@ -124,13 +122,10 @@ export function CertificatesTable({ certificates, onRowClick }: Readonly<Certifi
               <td>{cert.server}</td>
               <td>
                 {formatDate(cert.expirationDate)}
-                <span className={getExpirationClass(cert.expirationStatus)}>
-                  {cert.expirationStatus}
-                </span>
               </td>
               <td>
-                <span className={`status-badge ${cert.status === CertificateStatus.ACTIVE ? 'active' : 'deleted'}`}>
-                  {cert.status === CertificateStatus.ACTIVE ? 'Activo' : 'Eliminado'}
+                <span className={getExpirationClass(cert.expirationStatus)}>
+                  {cert.expirationStatus}
                 </span>
               </td>
               <td className="contacts-cell">
