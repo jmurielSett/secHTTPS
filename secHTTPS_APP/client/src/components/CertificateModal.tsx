@@ -133,15 +133,17 @@ export function CertificateModal({ certificate, onClose, canUpdate, canDelete }:
   return (
     <div className="create-certificate-modal-overlay">
       <div className="create-certificate-modal-content">
-        <div className="modal-header">
-          <h2>📄 {localCertificate.fileName}</h2>
-          <button className="modal-close" onClick={() => {
-            setIsEditing(false);
-            setTimeout(() => {
-              onClose();
-            }, 0);
-          }}>✕</button>
-        </div>
+        {!isEditing && (
+          <div className="modal-header">
+            <h2>📄 {localCertificate.fileName}</h2>
+            <button className="modal-close" onClick={() => {
+              setIsEditing(false);
+              setTimeout(() => {
+                onClose();
+              }, 0);
+            }}>✕</button>
+          </div>
+        )}
         {isEditing ? (
           <>
             <div className="create-modal-header" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16 }}>
