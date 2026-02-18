@@ -1,39 +1,19 @@
 /**
- * Hook para verificar permisos basados en roles
- * Utiliza el sistema RBAC de auth_APP
+ * Hook para verificar permisos basados en roles (RBAC)
+ * 🔐 SEGURO: Los permisos se calculan dinámicamente en el backend
+ * basándose en los roles del usuario desde el token JWT (httpOnly cookie)
+ * 
+ * ✅ VENTAJAS DE SEGURIDAD:
+ * - El usuario solo ve SUS permisos (no todos los roles del sistema)
+ * - Menor superficie de ataque (no expone estructura completa de permisos)
+ * - Cambios en permisos no requieren recompilar frontend
+ * - Backend es única fuente de verdad
  */
 
 import { useAuth } from './useAuth';
 
 type Resource = 'certificates' | 'notifications' | 'users' | 'roles';
 type Action = 'create' | 'read' | 'update' | 'delete' | 'send' | 'manage';
-
-interface PermissionMatrix {
-  [role: string]: {
-    [resource: string]: Action[];
-  };
-}
-
-/**
- * Matriz de permisos basada en el esquema de auth_APP
- * Refleja la configuración de la tabla permissions y role_permissions
- */
-const PERMISSIONS: PermissionMatrix = {
-  admin: {
-    certificates: ['create', 'read', 'update', 'delete'],
-    notifications: ['send', 'read']
-  },
-  editor: {
-    certificates: ['create', 'read', 'update']
-  },
-  viewer: {
-    certificates: ['read']
-  },
-  auditor: {
-    certificates: ['read'],
-    notifications: ['read']
-  }
-};
 
 export interface UsePermissionsReturn {
   /**
@@ -71,34 +51,28 @@ export interface UsePermissionsReturn {
 }
 
 /**
- * Hook personalizado para verificar permisos basados en roles
- * 🔒 SEGURO: Los roles vienen del token JWT en httpOnly cookie
+ * Hook personalizado para verificar permisos
+ * 🔒 SEGURO: Los permisos vienen calculados del backend (no hardcodeados)
  */
 export function usePermissions(): UsePermissionsReturn {
   const { user } = useAuth();
   
-  // Obtener roles del usuario desde el token JWT (siempre es un array)
+  // Obtener roles y permisos del usuario (vienen del backend vía JWT)
   const roles: string[] = user?.roles || [];
+  const permissions: Record<string, string[]> = user?.permissions || {};
   
   /**
    * Verifica si el usuario tiene un permiso específico
+   * 🔐 Usa los permisos calculados por el backend
    */
   const hasPermission = (resource: Resource, action: Action): boolean => {
     // Si no hay usuario autenticado, no tiene permisos
-    if (!roles || roles.length === 0) {
+    if (!user) {
       return false;
     }
     
-    // Verificar cada rol del usuario
-    for (const userRole of roles) {
-      const rolePermissions = PERMISSIONS[userRole];
-      
-      if (rolePermissions?.[resource]?.includes(action)) {
-        return true;
-      }
-    }
-    
-    return false;
+    // Verificar si tiene el permiso en la lista calculada por el backend
+    return permissions[resource]?.includes(action) ?? false;
   };
   
   /**
