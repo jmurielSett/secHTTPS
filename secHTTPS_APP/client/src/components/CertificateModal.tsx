@@ -32,6 +32,7 @@ interface CertificateModalProps {
   onClose: () => void;
   canUpdate?: boolean;
   canDelete?: boolean;
+  onDeleteSuccess?: (fileName: string) => void;
 }
 
 const getLanguageFlag = (languageCode: string): string => {
@@ -54,12 +55,16 @@ const getLanguageName = (languageCode: string): string => {
 
 
 
-export function CertificateModal({ certificate, onClose, canUpdate, canDelete }: Readonly<CertificateModalProps>) {
+export function CertificateModal({ certificate, onClose, canUpdate, canDelete, onDeleteSuccess }: Readonly<CertificateModalProps>) {
   const [isEditing, setIsEditing] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [localCertificate, setLocalCertificate] = useState(certificate);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
   const utils = trpc.useUtils?.() || {};
   const updateCertificateMutation = trpc.certificate.updateCertificate.useMutation();
+  const deleteCertificateMutation = trpc.certificate.deleteCertificate.useMutation();
   const formRef = useRef<CertificateFormHandle>(null);
 
   // Keep localCertificate in sync if certificate prop changes
@@ -72,6 +77,25 @@ export function CertificateModal({ certificate, onClose, canUpdate, canDelete }:
   }, [certificate]);
 
   if (!localCertificate) return null;
+
+  const handleConfirmDelete = async () => {
+    setIsDeleting(true);
+    setDeleteError(null);
+    try {
+      await deleteCertificateMutation.mutateAsync({ id: localCertificate.id });
+      const name = localCertificate.fileName;
+      setShowDeleteConfirm(false);
+      if (utils.certificate?.getCertificates?.invalidate) {
+        await utils.certificate.getCertificates.invalidate();
+      }
+      onClose();
+      onDeleteSuccess?.(name);
+    } catch {
+      setDeleteError('Error al eliminar el certificado. Inténtalo de nuevo.');
+    } finally {
+      setIsDeleting(false);
+    }
+  };
 
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString('es-ES', {
@@ -131,7 +155,56 @@ export function CertificateModal({ certificate, onClose, canUpdate, canDelete }:
   };
 
   return (
-    <div className="create-certificate-modal-overlay">
+    <>
+      {/* Delete confirmation overlay */}
+      {showDeleteConfirm && (
+        <div
+          style={{
+            position: 'fixed', inset: 0,
+            background: 'rgba(0,0,0,0.55)',
+            zIndex: 2000,
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+          }}
+        >
+          <div style={{
+            background: '#fff', borderRadius: 12,
+            boxShadow: '0 8px 40px rgba(0,0,0,0.22)',
+            padding: '36px 32px 28px',
+            minWidth: 340, maxWidth: '90vw',
+            textAlign: 'center',
+          }}>
+            <div style={{ fontSize: 44, marginBottom: 8 }}>🗑️</div>
+            <h3 style={{ color: '#c0392b', marginBottom: 10, fontSize: 20 }}>¿Eliminar certificado?</h3>
+            <p style={{ marginBottom: 6, color: '#333' }}>
+              Vas a eliminar <strong>{localCertificate.fileName}</strong>.
+            </p>
+            <p style={{ marginBottom: 20, color: '#666', fontSize: 14 }}>
+              Esta acción <strong>no se puede deshacer</strong>.
+            </p>
+            {deleteError && (
+              <p style={{ color: '#c0392b', marginBottom: 14, fontSize: 14 }}>{deleteError}</p>
+            )}
+            <div style={{ display: 'flex', justifyContent: 'center', gap: 12 }}>
+              <button
+                className="btn-secondary"
+                onClick={() => { setShowDeleteConfirm(false); setDeleteError(null); }}
+                disabled={isDeleting}
+              >
+                Cancelar
+              </button>
+              <button
+                className="btn-danger"
+                style={{ minWidth: 110 }}
+                onClick={handleConfirmDelete}
+                disabled={isDeleting}
+              >
+                {isDeleting ? 'Eliminando...' : '🗑️ Eliminar'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      <div className="create-certificate-modal-overlay">
       <div className="create-certificate-modal-content">
         {!isEditing && (
           <div className="modal-header">
@@ -161,12 +234,7 @@ export function CertificateModal({ certificate, onClose, canUpdate, canDelete }:
                   <span style={{ fontSize: '1.1em', lineHeight: 1, display: 'inline-block' }}>💾</span>
                   <span style={{ display: 'inline-block' }}>Guardar Cambios</span>
                 </button>
-                <button className="close-button" onClick={() => {
-                  setIsEditing(false);
-                  setTimeout(() => {
-                    onClose();
-                  }, 0);
-                }}>×</button>
+                <button className="close-button" onClick={() => setIsEditing(false)}>×</button>
               </div>
             </div>
             <div className="create-modal-body">
@@ -188,19 +256,13 @@ export function CertificateModal({ certificate, onClose, canUpdate, canDelete }:
                 onSubmit={async (data: CertificateFormData) => {
                   setIsSubmitting(true);
                   try {
-                    const result = await updateCertificateMutation.mutateAsync({
+                    await updateCertificateMutation.mutateAsync({
                       id: localCertificate.id,
                       data: {
                         ...data,
                       },
                     });
-                    // Update local certificate state with new data
-                    setLocalCertificate(prev => ({
-                      ...prev,
-                      ...data,
-                      // Optionally, merge result if backend returns updated fields
-                      ...(result ?? {}),
-                    }));
+                    setLocalCertificate(prev => prev ? { ...prev, ...data } as Certificate : null);
                     setIsEditing(false);
                     if (utils.certificate?.getCertificates?.invalidate) {
                       await utils.certificate.getCertificates.invalidate();
@@ -277,7 +339,7 @@ export function CertificateModal({ certificate, onClose, canUpdate, canDelete }:
               {/* Responsables */}
                 <div className="modal-section">
                   <section className="form-section">
-                    <h3 style={{ textAlign: 'center', margin: '2rem 0 1rem 0' }}>
+                    <h3 style={{ textAlign: 'center', margin: '0.5rem 0 0.75rem 0' }}>
                       👥 Contactos Responsables
                     </h3>
                     <div className="contacts-table-wrapper">
@@ -333,19 +395,27 @@ export function CertificateModal({ certificate, onClose, canUpdate, canDelete }:
                   onClose();
                 }, 0);
               }}>Cerrar</button>
-              {canUpdate && (
-                <button className="add-contact-btn" style={{ fontWeight: 600, fontSize: '1rem', display: 'flex', alignItems: 'center', gap: 8 }} onClick={() => setIsEditing(true)}>
-                  <span style={{ fontSize: 20, lineHeight: 1, display: 'inline-block' }}>✏️</span>
-                  Editar
-                </button>
-              )}
-              {canDelete && (
-                <button className="btn-danger">🗑️ Eliminar Certificado</button>
-              )}
+              <div style={{ display: 'flex', gap: '0.4rem' }}>
+                {canUpdate && localCertificate.status === CertificateStatus.ACTIVE && (
+                  <button className="btn-edit" onClick={() => setIsEditing(true)}>
+                    <span style={{ fontSize: '1.1em', lineHeight: 1 }}>{'✏️'}</span>
+                    {' '}Editar Certificado
+                  </button>
+                )}
+                {canDelete && localCertificate.status === CertificateStatus.ACTIVE && (
+                  <button
+                    className="btn-danger"
+                    onClick={() => setShowDeleteConfirm(true)}
+                  >
+                    🗑️ Eliminar Certificado
+                  </button>
+                )}
+              </div>
             </div>
           </>
         )}
       </div>
     </div>
+    </>
   );
 }

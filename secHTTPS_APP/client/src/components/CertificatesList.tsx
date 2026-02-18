@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { CertificateStatus } from '../../../src/types/certificate';
 import { usePermissions } from '../hooks/usePermissions';
 import { trpc } from '../utils/trpc';
 import { CertificateCard } from './CertificateCard';
@@ -22,6 +23,7 @@ export function CertificatesList({ onLogout, showServerError }: Readonly<Certifi
   const [filtersCollapsed, setFiltersCollapsed] = useState(true);
   const [selectedCertificate, setSelectedCertificate] = useState<any>(null);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  const [deleteSuccessMsg, setDeleteSuccessMsg] = useState<string | null>(null);
   
   // Verificar permisos del usuario basados en roles del token JWT
   const { canCreateCertificates, canDeleteCertificates, canUpdateCertificates } = usePermissions();
@@ -49,6 +51,13 @@ export function CertificatesList({ onLogout, showServerError }: Readonly<Certifi
     await createCertificateMutation.mutateAsync(data);
   };
 
+  const handleDeleteSuccess = (fileName: string) => {
+    setSelectedCertificate(null);
+    certificatesQuery.refetch();
+    setDeleteSuccessMsg(`El certificado "${fileName}" se ha eliminado correctamente.`);
+    setTimeout(() => setDeleteSuccessMsg(null), 5000);
+  };
+
   const hasActiveFilters = Object.values(filters).some(value => value !== undefined && value !== '');
 
   return (
@@ -68,7 +77,14 @@ export function CertificatesList({ onLogout, showServerError }: Readonly<Certifi
           {certificatesQuery.data && (
             <div className="certificates-count">
               {hasActiveFilters ? (
-                <>Mostrando {certificatesQuery.data.total} certificado{certificatesQuery.data.total === 1 ? '' : 's'} </>
+                <>Mostrando {certificatesQuery.data.total} certificado{certificatesQuery.data.total === 1 ? '' : 's'}{' '}
+                  {filters.status === CertificateStatus.ACTIVE && (
+                    <span style={{ color: '#16a34a', fontWeight: 600 }}>activo{certificatesQuery.data.total === 1 ? '' : 's'}</span>
+                  )}
+                  {filters.status === CertificateStatus.DELETED && (
+                    <span style={{ color: '#dc2626', fontWeight: 600 }}>eliminado{certificatesQuery.data.total === 1 ? '' : 's'}</span>
+                  )}
+                </>
               ) : (
                 <>Total: {certificatesQuery.data.total} certificado{certificatesQuery.data.total === 1 ? '' : 's'}</>
               )}
@@ -107,6 +123,22 @@ export function CertificatesList({ onLogout, showServerError }: Readonly<Certifi
       
       {/* Área scrollable: Lista de certificados */}
       <div className="certificates-scrollable">
+        {/* Banner de eliminación exitosa */}
+        {deleteSuccessMsg && (
+          <div style={{
+            background: '#e8f5e9', color: '#2e7d32', border: '1px solid #a5d6a7',
+            borderRadius: 8, padding: '12px 18px', marginBottom: 12,
+            display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12,
+            fontSize: 14, fontWeight: 500,
+          }}>
+            <span>✅ {deleteSuccessMsg}</span>
+            <button
+              onClick={() => setDeleteSuccessMsg(null)}
+              style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 16, lineHeight: 1, color: '#2e7d32' }}
+              aria-label="Cerrar"
+            >✕</button>
+          </div>
+        )}
         {/* Contenedor con position relative para el overlay */}
         <div style={{ position: 'relative', minHeight: '200px' }}>
           {/* Loading overlay durante carga o filtrado */}
@@ -172,6 +204,7 @@ export function CertificatesList({ onLogout, showServerError }: Readonly<Certifi
         onClose={() => setSelectedCertificate(null)}
         canUpdate={canUpdateCertificates}
         canDelete={canDeleteCertificates}
+        onDeleteSuccess={handleDeleteSuccess}
       />
 
       {/* Modal de creación */}
