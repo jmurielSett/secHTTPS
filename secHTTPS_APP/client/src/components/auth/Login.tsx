@@ -354,6 +354,7 @@ export function Login({ onLoginSuccess }: Readonly<LoginProps>) {
         <ServerErrorModal
           retryCount={retryCount}
           isRetrying={isRetrying}
+          maxRetries={MAX_RETRY_ATTEMPTS}
           onRetry={handleRetry}
           onExit={handleExitAfterMaxRetries}
         />
@@ -373,18 +374,10 @@ export function Login({ onLoginSuccess }: Readonly<LoginProps>) {
         )}
         
         {isLocked && (
-          <div className="error-message" style={{ 
-            backgroundColor: '#fff3cd', 
-            borderColor: '#ffc107', 
-            color: '#856404',
-            padding: '12px 20px',
-            fontWeight: '500'
-          }}>
-            <span style={{ fontSize: '24px', marginRight: '10px' }}>🔒</span>
+          <div className="lockout-warning">
+            <span className="lockout-icon">🔒</span>
             <div>
-              <div style={{ fontWeight: 'bold', marginBottom: '4px' }}>
-                Cuenta bloqueada temporalmente
-              </div>
+              <div className="lockout-title">Cuenta bloqueada temporalmente</div>
               <div>
                 Demasiados intentos fallidos. Podrás intentar de nuevo en{' '}
                 <strong>{formatTimeRemaining(timeRemaining)}</strong>

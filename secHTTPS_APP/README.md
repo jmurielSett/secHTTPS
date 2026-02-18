@@ -195,6 +195,37 @@ El acceso está delegado en `auth_APP`. Los tokens JWT contienen el rol del usua
 | `editor` | crear, leer, actualizar | — |
 | `viewer` | leer | — |
 
+### Seguridad del Login (cliente)
+
+El componente `Login` implementa dos mecanismos de protección en el lado cliente:
+
+#### 1. Bloqueo por exceso de intentos fallidos
+
+| Parámetro | Valor |
+|---|---|
+| Intentos antes del bloqueo | 10 |
+| Duración del bloqueo | 3 minutos |
+
+- Cada respuesta `!ok` de `auth_APP` incrementa el contador de intentos.
+- Al alcanzar el límite se calcula `lockoutUntil = Date.now() + 3 min` y se persiste en `localStorage` para sobrevivir recargas de página.
+- Mientras el bloqueo está activo, el formulario se deshabilita y el botón muestra una cuenta atrás en tiempo real (`🔒 Bloqueado (2:47)`).
+- Al expirar el bloqueo se borran los datos de `localStorage` y el formulario vuelve a estar disponible.
+- Los mensajes de error son genéricos (*"Acceso incorrecto"*) — no revelan si el usuario existe ni si la contraseña es incorrecta (principio OWASP).
+
+#### 2. Reintentos ante fallo de conexión
+
+- Si el `fetch` a `auth_APP` lanza un error de red (`TypeError` / `Failed to fetch`), se muestra el modal `ServerErrorModal`.
+- El modal ofrece hasta **3 reintentos** automáticos con feedback visual (spinner + "Intento N de 3").
+- Si los 3 intentos fallan, el modal pasa a modo de error final con instrucción de contactar al responsable.
+- Una vez que la conexión se recupera, el modal se cierra automáticamente y el flujo de login continúa con normalidad.
+
+```
+retryCount=0 → ⚠️  Servidor Inaccesible  → botón [🔄 Reintentar]
+retryCount=1 → ⏳  Conectando...         → spinner (intento 2 de 3)
+retryCount=1 → ⚠️  Servidor Inaccesible  → botón [🔄 Reintentar]  (si falla)
+retryCount=3 → 🚫  Conexión Fallida      → botón [🚪 Salir]  (rojo)
+```
+
 ---
 
 ## API
@@ -386,3 +417,6 @@ Los certificados nunca se eliminan físicamente — solo cambian a `status: DELE
 
 ### Value Objects para invariantes de dominio
 Las reglas de validación que pertenecen al dominio (`EmailAddress`, `LanguageCode`, `CertificateDateRange`) se encapsulan en Value Objects en lugar de en métodos privados de los use cases. Esto garantiza que la lógica de validación sea reutilizable, testeable de forma aislada e imposible de eludir: si un Value Object se construye con éxito, la invariante está cumplida. Los DTOs de la capa de transporte siguen usando tipos primitivos (`string`) para simplicidad de serialización.
+
+### Bloqueo de login y reintentos en cliente
+La lógica de protección contra fuerza bruta y fallos de conexión vive íntegramente en el cliente (`Login.tsx`), independiente del servidor. Esto evita que el servidor tenga que gestionar estado de sesión de intentos y cumple con las recomendaciones OWASP de no revelar información interna. El bloqueo se persiste en `localStorage` para sobrevivir recargas, y el contador de reintentos de red es independiente del contador de intentos de autenticación: un fallo de red no penaliza el contador de bloqueo.
