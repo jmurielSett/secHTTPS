@@ -47,6 +47,9 @@
   cursor: pointer;
   font-weight: 600;
   transition: all 0.3s ease;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
 }
 
 .logout-button:hover {
