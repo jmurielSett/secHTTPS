@@ -1,5 +1,5 @@
 import React, { useRef, useState } from 'react';
-import { clientError } from '../utils/logger';
+import { clientError } from '../../utils/logger';
 import { CertificateForm, CertificateFormData, CertificateFormHandle } from './CertificateForm';
 import './CreateCertificateModal.css';
 

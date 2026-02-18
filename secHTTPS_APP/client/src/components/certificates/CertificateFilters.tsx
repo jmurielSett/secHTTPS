@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
-import { CertificateStatus } from '../../../src/types/certificate';
-import { ExpirationStatus } from '../../../src/types/shared';
+import { CertificateStatus } from '../../../../src/types/certificate';
+import { ExpirationStatus } from '../../../../src/types/shared';
 import './CertificateFilters.css';
 
 export interface CertificateFiltersValue {

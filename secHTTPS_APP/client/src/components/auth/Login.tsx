@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
-import { clientError, clientLog } from '../utils/logger';
+import { clientError, clientLog } from '../../utils/logger';
+import { ServerErrorModal } from '../ui/ServerErrorModal';
 import './Login.css';
-import { ServerErrorModal } from './ServerErrorModal';
 
 interface LoginProps {
   onLoginSuccess: () => void;

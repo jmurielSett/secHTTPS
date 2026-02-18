@@ -1,9 +1,9 @@
 import { useEffect, useRef, useState } from 'react';
-import { CertificateStatus } from '../../../src/types/certificate';
-import { NotificationResult } from '../../../src/types/notification';
-import { ExpirationStatus } from '../../../src/types/shared';
-import { clientError } from '../utils/logger';
-import { trpc } from '../utils/trpc';
+import { CertificateStatus } from '../../../../src/types/certificate';
+import { NotificationResult } from '../../../../src/types/notification';
+import { ExpirationStatus } from '../../../../src/types/shared';
+import { clientError } from '../../utils/logger';
+import { trpc } from '../../utils/trpc';
 import { CertificateForm, CertificateFormData, CertificateFormHandle } from './CertificateForm';
 import './CertificateModal.css';
 

@@ -1,14 +1,14 @@
 import { useState } from 'react';
-import { CertificateStatus } from '../../../src/types/certificate';
-import { usePermissions } from '../hooks/usePermissions';
-import { trpc } from '../utils/trpc';
+import { CertificateStatus } from '../../../../src/types/certificate';
+import { usePermissions } from '../../hooks/usePermissions';
+import { trpc } from '../../utils/trpc';
+import { LoadingOverlay } from '../ui/LoadingOverlay';
 import { CertificateCard } from './CertificateCard';
 import { CertificateFilters, CertificateFiltersValue } from './CertificateFilters';
 import { CertificateModal } from './CertificateModal';
 import './CertificatesList.css';
 import { CertificatesTable } from './CertificatesTable';
 import { CreateCertificateData, CreateCertificateModal } from './CreateCertificateModal';
-import { LoadingOverlay } from './LoadingOverlay';
 
 interface CertificatesListProps {
   onLogout: () => void;

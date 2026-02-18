@@ -1,5 +1,5 @@
 import { forwardRef, SyntheticEvent, useImperativeHandle, useRef, useState } from 'react';
-import '../components/CreateCertificateModal.css';
+import './CreateCertificateModal.css';
 
 export interface ResponsibleContact {
   email: string;
