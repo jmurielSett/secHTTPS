@@ -5,6 +5,8 @@
 import { z } from 'zod';
 import { CreateCertificateUseCase } from '../../../domain/usecases/certificates/CreateCertificateUseCase';
 import { GetCertificatesUseCase } from '../../../domain/usecases/certificates/GetCertificatesUseCase';
+import { UpdateCertificateStatusUseCase } from '../../../domain/usecases/certificates/UpdateCertificateStatusUseCase';
+import { logInfo } from '../../../utils/logger';
 import { protectedProcedure, publicProcedure, router } from '../trpc';
 
 /**
@@ -119,8 +121,6 @@ const updateCertificateSchema = z.object({
 /**
  * Router de certificados
  */
-import { UpdateCertificateStatusUseCase } from '../../../domain/usecases/certificates/UpdateCertificateStatusUseCase';
-
 export const certificateRouter = router({
     /**
      * Eliminar (soft delete) un certificado
@@ -147,7 +147,7 @@ export const certificateRouter = router({
       data: updateCertificateSchema
     }))
     .mutation(async ({ input, ctx }) => {
-      console.log(`[tRPC] User ${ctx.username} (${ctx.userId}) updating certificate ${input.id}`);
+      logInfo(`[tRPC] User ${ctx.username} (${ctx.userId}) updating certificate ${input.id}`);
       const { UpdateCertificateUseCase } = await import('../../../domain/usecases/certificates/UpdateCertificateUseCase');
       const { CertificateExpirationService } = await import('../../../domain/services/CertificateExpirationService');
       const updateCertificateUseCase = new UpdateCertificateUseCase(
@@ -166,10 +166,7 @@ export const certificateRouter = router({
   getCertificates: protectedProcedure
     .input(getCertificatesSchema)
     .query(async ({ input, ctx }) => {
-      console.log(`[tRPC] User ${ctx.username} (${ctx.userId}) fetching certificates`);
-      
-      // 🔧 TEMPORAL: Delay artificial para visualizar el loading overlay (remover en producción)
-      await new Promise(resolve => setTimeout(resolve, 200));
+      logInfo(`[tRPC] User ${ctx.username} (${ctx.userId}) fetching certificates`);
       
       const getCertificatesUseCase = new GetCertificatesUseCase(ctx.certificateRepository);
       
@@ -188,13 +185,13 @@ export const certificateRouter = router({
   createCertificate: protectedProcedure
     .input(createCertificateSchema)
     .mutation(async ({ input, ctx }) => {
-      console.log(`[tRPC] User ${ctx.username} (${ctx.userId}) creating certificate`);
+      logInfo(`[tRPC] User ${ctx.username} (${ctx.userId}) creating certificate`);
       
       const createCertificateUseCase = new CreateCertificateUseCase(
         ctx.certificateRepository,
         ctx.notificationRepository,
-        undefined, // emailService - TODO: Agregar al contexto cuando esté disponible
-        undefined  // localizationService - TODO: Agregar al contexto cuando esté disponible
+        ctx.emailService,
+        ctx.localizationService
       );
       
       const certificate = await createCertificateUseCase.execute(input);

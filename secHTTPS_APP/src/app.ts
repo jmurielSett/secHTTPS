@@ -6,6 +6,8 @@ import jwt from 'jsonwebtoken';
 import { ICertificateRepository } from './domain/repositories/ICertificateRepository';
 import { INotificationRepository } from './domain/repositories/INotificationRepository';
 import { connectDatabase } from './infrastructure/database/connection';
+import { LocalizationService } from './infrastructure/localization/LocalizationService';
+import { NodemailerEmailService } from './infrastructure/messaging/NodemailerEmailService';
 import { requestLogger } from './infrastructure/middleware/requestLogger';
 import { InMemoryCertificateRepository } from './infrastructure/persistence/CertificateRepository';
 import { InMemoryNotificationRepository } from './infrastructure/persistence/NotificationRepository';
@@ -15,6 +17,7 @@ import { createCertificateRouter } from './infrastructure/transport/routes/certi
 import { createNotificationRouter } from './infrastructure/transport/routes/notificationRoutes';
 import { appRouter } from './infrastructure/trpc/routers';
 import { TRPCContext } from './infrastructure/trpc/trpc';
+import { logInfo, logWarn } from './utils/logger';
 
 export interface AppContext {
   app: Application;
@@ -77,6 +80,23 @@ export async function createApp(usePostgres: boolean = false): Promise<AppContex
   const JWT_ACCESS_SECRET = process.env.JWT_ACCESS_SECRET!;
   const APPLICATION_NAME = process.env.APPLICATION_NAME || 'secHTTPS_APP';
 
+  // Servicios de email y localización (opcionales — solo si SMTP está configurado)
+  let emailService: NodemailerEmailService | undefined;
+  let localizationService: LocalizationService | undefined;
+  try {
+    const candidate = new NodemailerEmailService();
+    const smtpOk = await candidate.verifyConnection();
+    if (smtpOk) {
+      emailService = candidate;
+      localizationService = new LocalizationService();
+      logInfo('[App] SMTP verificado — notificaciones de creación activadas');
+    } else {
+      logWarn('[App] SMTP no disponible — notificaciones de creación desactivadas');
+    }
+  } catch {
+    logWarn('[App] Error al verificar SMTP — notificaciones de creación desactivadas');
+  }
+
   // tRPC endpoint - Expone todos los procedimientos bajo /trpc
   app.use(
     '/trpc',
@@ -104,15 +124,15 @@ export async function createApp(usePostgres: boolean = false): Promise<AppContex
                 applicationName = decoded.applicationName;
                 roles = decoded.roles || [];
               } else {
-                console.warn(`[Auth] Token is for ${decoded.applicationName}, not ${APPLICATION_NAME}`);
+                logWarn(`[Auth] Token is for ${decoded.applicationName}, not ${APPLICATION_NAME}`);
               }
             }
           } catch (error: any) {
             // Token invalid or expired - context will have no user
             if (error.name === 'TokenExpiredError') {
-              console.warn('[Auth] Access token expired');
+              logWarn('[Auth] Access token expired');
             } else {
-              console.warn('[Auth] Invalid access token:', error.message);
+              logWarn(`[Auth] Invalid access token: ${error.message}`);
             }
           }
         }
@@ -120,6 +140,8 @@ export async function createApp(usePostgres: boolean = false): Promise<AppContex
         return {
           certificateRepository,
           notificationRepository,
+          emailService,
+          localizationService,
           userId,
           username,
           applicationName,

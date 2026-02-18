@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { Certificate, CertificateStatus, CreateCertificateDTO } from '../../../types/certificate';
 import { ErrorCode, ValidationError } from '../../../types/errors';
 import { Notification, NotificationResult } from '../../../types/notification';
+import { logError, logInfo } from '../../../utils/logger';
 import { ICertificateRepository } from '../../repositories/ICertificateRepository';
 import { INotificationRepository } from '../../repositories/INotificationRepository';
 import { CertificateExpirationService } from '../../services/CertificateExpirationService';
@@ -49,7 +50,7 @@ export class CreateCertificateUseCase {
     // Enviar email de notificación (no bloquea si falla)
     if (this.emailService) {
       this.sendCreationNotification(savedCertificate).catch(error => {
-        console.error(`Error al enviar email de notificación para certificado ${savedCertificate.id}:`, error);
+        logError(`[CreateCertificateUseCase] Error al enviar email de notificación para certificado ${savedCertificate.id}`, error as Error);
         // No lanzar el error para no interrumpir la creación del certificado
       });
     }
@@ -120,10 +121,10 @@ export class CreateCertificateUseCase {
         content.textBody
       );
       
-      console.log(`✅ Email de creación enviado a ${contact.email} (${contact.language})`);
+      logInfo(`[CreateCertificateUseCase] Email de creación enviado a ${contact.email} (${contact.language})`);
       return { success: true };
     } catch (error) {
-      console.error(`❌ Error al enviar email a ${contact.email}:`, error);
+      logError(`[CreateCertificateUseCase] Error al enviar email a ${contact.email}`, error as Error);
       const errorMsg = error instanceof Error ? error.message : 'Error desconocido';
       return { success: false, error: errorMsg };
     }
@@ -156,9 +157,9 @@ export class CreateCertificateUseCase {
       };
 
       await this.notificationRepository.save(notification);
-      console.log(`📝 Notificación de creación registrada en BD: ${notification.id}`);
+      logInfo(`[CreateCertificateUseCase] Notificación de creación registrada en BD: ${notification.id}`);
     } catch (dbError) {
-      console.error(`❌ Error al registrar notificación en BD:`, dbError);
+      logError('[CreateCertificateUseCase] Error al registrar notificación en BD', dbError as Error);
     }
   }
 

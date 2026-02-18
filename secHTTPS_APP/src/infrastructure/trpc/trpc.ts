@@ -5,6 +5,8 @@
 import { TRPCError, initTRPC } from '@trpc/server';
 import { ICertificateRepository } from '../../domain/repositories/ICertificateRepository';
 import { INotificationRepository } from '../../domain/repositories/INotificationRepository';
+import { IEmailService } from '../../domain/services/IEmailService';
+import { ILocalizationService } from '../../domain/services/ILocalizationService';
 
 /**
  * Contexto de tRPC - contiene servicios y repositorios
@@ -13,6 +15,9 @@ import { INotificationRepository } from '../../domain/repositories/INotification
 export interface TRPCContext {
   certificateRepository: ICertificateRepository;
   notificationRepository: INotificationRepository;
+  // Servicios opcionales (disponibles si SMTP está configurado)
+  emailService?: IEmailService;
+  localizationService?: ILocalizationService;
   // Authentication data (from JWT in httpOnly cookie)
   userId?: string;
   username?: string;
