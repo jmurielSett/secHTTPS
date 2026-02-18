@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { CertificateStatus } from '../../../src/types/certificate';
+import { NotificationResult } from '../../../src/types/notification';
 import { ExpirationStatus } from '../../../src/types/shared';
 import { trpc } from '../utils/trpc';
 import { CertificateForm, CertificateFormData, CertificateFormHandle } from './CertificateForm';
@@ -32,6 +33,7 @@ interface CertificateModalProps {
   onClose: () => void;
   canUpdate?: boolean;
   canDelete?: boolean;
+  canReadNotifications?: boolean;
   onDeleteSuccess?: (fileName: string) => void;
 }
 
@@ -55,7 +57,7 @@ const getLanguageName = (languageCode: string): string => {
 
 
 
-export function CertificateModal({ certificate, onClose, canUpdate, canDelete, onDeleteSuccess }: Readonly<CertificateModalProps>) {
+export function CertificateModal({ certificate, onClose, canUpdate, canDelete, canReadNotifications, onDeleteSuccess }: Readonly<CertificateModalProps>) {
   const [isEditing, setIsEditing] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [localCertificate, setLocalCertificate] = useState(certificate);
@@ -66,6 +68,23 @@ export function CertificateModal({ certificate, onClose, canUpdate, canDelete, o
   const updateCertificateMutation = trpc.certificate.updateCertificate.useMutation();
   const deleteCertificateMutation = trpc.certificate.deleteCertificate.useMutation();
   const formRef = useRef<CertificateFormHandle>(null);
+
+  // Historial de notificaciones (solo si el usuario tiene permiso)
+  const notificationsQuery = trpc.notification.getNotificationsByCertificate.useQuery(
+    { certificateId: localCertificate?.id ?? '' },
+    { enabled: !!canReadNotifications && !!localCertificate?.id && !isEditing }
+  );
+
+  const [expandedNotifIds, setExpandedNotifIds] = useState<Set<string>>(new Set());
+
+  const toggleNotifRow = (id: string) => {
+    setExpandedNotifIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
 
   // Keep localCertificate in sync if certificate prop changes
   useEffect(() => {
@@ -370,6 +389,102 @@ export function CertificateModal({ certificate, onClose, canUpdate, canDelete, o
                 </div>
                   </section>
               </div>
+
+              {/* Historial de notificaciones */}
+              {canReadNotifications && (
+                <div className="modal-section">
+                  <section className="form-section">
+                    <h3 style={{ textAlign: 'center', margin: '0.5rem 0 0.75rem 0' }}>
+                      📬 Historial de notificaciones
+                      {notificationsQuery.data && (
+                        <span className="notif-history-badge">{notificationsQuery.data.total}</span>
+                      )}
+                    </h3>
+                    {notificationsQuery.isLoading && (
+                      <p className="notif-history-loading">Cargando historial...</p>
+                    )}
+                    {notificationsQuery.data?.total === 0 && (
+                      <p className="no-contacts">No hay notificaciones enviadas para este certificado.</p>
+                    )}
+                    {notificationsQuery.data && notificationsQuery.data.total > 0 && (
+                      <div className="contacts-table-wrapper">
+                        <table className="contacts-table">
+                          <thead>
+                            <tr>
+                              <th style={{ width: 24 }}></th>
+                              <th>Fecha</th>
+                              <th>Estado</th>
+                              <th>Expiración</th>
+                              <th>Destinatarios</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {notificationsQuery.data.notifications.map(n => {
+                              const isExpanded = expandedNotifIds.has(n.id);
+                              const isError = n.result === NotificationResult.ERROR;
+                              return (
+                                <>
+                                  <tr
+                                    key={n.id}
+                                    className={`notif-row${isError ? ' notif-row-error' : ''}`}
+                                    onClick={() => toggleNotifRow(n.id)}
+                                    style={{ cursor: 'pointer' }}
+                                    title={isError && n.errorMessage ? n.errorMessage : undefined}
+                                  >
+                                    <td className="notif-expand-cell">{isExpanded ? '▼' : '▶'}</td>
+                                    <td style={{ whiteSpace: 'nowrap' }}>{formatDate(n.sentAt)}</td>
+                                    <td>
+                                      {n.result === NotificationResult.SENT && <span className="notif-badge notif-sent">✓ Enviado</span>}
+                                      {n.result === NotificationResult.ERROR && <span className="notif-badge notif-error">✕ Error</span>}
+                                      {n.result === NotificationResult.FORCE && <span className="notif-badge notif-force">⚡ Forzado</span>}
+                                    </td>
+                                    <td>
+                                      <span className={`expiration-badge ${getExpirationClass(n.expirationStatusAtTime)}`} style={{ fontSize: '0.8rem', padding: '0.2rem 0.6rem' }}>
+                                        {getExpirationLabel(n.expirationStatusAtTime)}
+                                      </span>
+                                    </td>
+                                    <td>
+                                      <span className="notif-recipients-summary">
+                                        {n.recipientEmails.length === 1
+                                          ? '1 destinatario'
+                                          : `${n.recipientEmails.length} destinatarios`}
+                                      </span>
+                                    </td>
+                                  </tr>
+                                  {isExpanded && (
+                                    <tr key={`${n.id}-detail`} className={`notif-detail-row${isError ? ' notif-row-error' : ''}`}>
+                                      <td></td>
+                                      <td colSpan={4}>
+                                        <div className="notif-detail">
+                                          <div className="notif-detail-subject">
+                                            <span className="notif-detail-label">Asunto:</span> {n.subject}
+                                          </div>
+                                          {isError && n.errorMessage && (
+                                            <div className="notif-detail-error">
+                                              ⚠️ {n.errorMessage}
+                                            </div>
+                                          )}
+                                          <div className="notif-detail-emails">
+                                            {n.recipientEmails.map(email => (
+                                              <span key={email} className="notif-email-chip">
+                                                {email}
+                                              </span>
+                                            ))}
+                                          </div>
+                                        </div>
+                                      </td>
+                                    </tr>
+                                  )}
+                                </>
+                              );
+                            })}
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
+                  </section>
+                </div>
+              )}
 
               {/* Metadatos */}
               <div className="modal-section metadata">
