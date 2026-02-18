@@ -7,6 +7,7 @@ interface UserData {
   userId: string;
   username: string;
   roles: string[];
+  permissions: Record<string, string[]>; // 🔐 Nuevo: permisos calculados dinámicamente por el backend
 }
 
 interface UseAuthReturn {
@@ -76,7 +77,10 @@ export function useAuth(): UseAuthReturn {
     } finally {
       // Limpiar flag de sesión (NO guardamos datos sensibles)
       localStorage.removeItem('hasSession');
-      setIsAuthenticated(false);
+      
+      // Navegar a la URL de login limpia (sin sessionExpired)
+      // Esto previene que se muestre el mensaje de sesión expirada en logout manual
+      globalThis.location.href = '/';
     }
   };
 
