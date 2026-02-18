@@ -75,14 +75,25 @@ graph LR
 | Capa | Responsabilidad |
 |------|-----------------|
 | `domain/usecases/` | Lógica de negocio pura (independiente de infraestructura) |
-| `domain/services/` | Servicios de dominio (cálculo de expiración, interfaces de email/localización) |
-| `domain/repositories/` | Interfaces de persistencia (contratos) |
+| `domain/services/` | Servicios de dominio (cálculo de expiración, interfaces de email/localización) || `domain/valueObjects/` | Value Objects de dominio (`EmailAddress`, `LanguageCode`, `CertificateDateRange`) || `domain/repositories/` | Interfaces de persistencia (contratos) |
 | `infrastructure/persistence/` | Implementaciones: `InMemory*` y `Postgres*` |
 | `infrastructure/trpc/` | Router tRPC + JWT middleware para cliente React |
 | `infrastructure/transport/` | Endpoints REST para integración entre servicios |
 | `infrastructure/scheduling/` | Scheduler node-cron |
 | `infrastructure/messaging/` | Implementación Nodemailer |
 | `client/src/` | SPA React con TanStack Query + tRPC |
+
+### Value Objects
+
+Los Value Objects encapsulan reglas de negocio como invariantes de construcción. Solo pueden crearse a través de su método `create()`, que lanza `ValidationError` si los datos no son válidos. Una vez construidos, su estado es inmutable.
+
+| Value Object | Invariante | Error code |
+|---|---|---|
+| `EmailAddress` | Formato RFC válido (`user@domain.ext`), normalizado a minúsculas | `INVALID_EMAIL_FORMAT` |
+| `LanguageCode` | Pertenece a `SupportedLanguage` (`es`, `en`, `fr`, `de`) | `INVALID_LANGUAGE_CODE` |
+| `CertificateDateRange` | `expirationDate` estrictamente posterior a `startDate` y ambas fechas parseables | `INVALID_DATE_RANGE` |
+
+Se usan internamente en los use cases (`CreateCertificateUseCase`, `UpdateCertificateUseCase`) para validar los datos de entrada. Los DTOs siguen siendo `string` / `string[]` — los Value Objects no se exponen en la capa de transporte.
 
 ---
 
@@ -306,13 +317,14 @@ npm run docker:down      # Parar contenedores
 ## Tests
 
 ```
-Test Files  12 passed (12)
-     Tests  101 passed (101)
+Test Files  15 passed (15)
+     Tests  137 passed (137)
 ```
 
 | Tipo | Archivos | Tests | Descripción |
 |------|----------|-------|-------------|
-| Unit | 8 | 51 | Use cases de certificados y notificaciones |
+| Unit (value objects) | 3 | 36 | `EmailAddress`, `LanguageCode`, `CertificateDateRange` |
+| Unit (use cases) | 8 | 51 | Use cases de certificados y notificaciones |
 | Unit (servicio) | 1 | 9 | `CertificateExpirationService` |
 | Unit (use case complejo) | 1 | 8 | `SendCertificateNotificationsUseCase` |
 | Integration | 2 | 33 | REST API de certificados y notificaciones |
@@ -324,6 +336,10 @@ Test Files  12 passed (12)
 tests/
 ├── unit/
 │   ├── domain/
+│   │   ├── valueObjects/
+│   │   │   ├── EmailAddress.test.ts
+│   │   │   ├── LanguageCode.test.ts
+│   │   │   └── CertificateDateRange.test.ts
 │   │   └── usecases/
 │   │       ├── certificates/
 │   │       │   ├── CreateCertificateUseCase.test.ts
@@ -367,3 +383,6 @@ Los certificados nunca se eliminan físicamente — solo cambian a `status: DELE
 
 ### Expiración calculada en tiempo real
 `CertificateExpirationService.calculateExpirationStatus()` recalcula el estado usando `new Date()` en cada llamada. Al crear o actualizar un certificado, el estado se almacena en BD para facilitar los filtros de búsqueda.
+
+### Value Objects para invariantes de dominio
+Las reglas de validación que pertenecen al dominio (`EmailAddress`, `LanguageCode`, `CertificateDateRange`) se encapsulan en Value Objects en lugar de en métodos privados de los use cases. Esto garantiza que la lógica de validación sea reutilizable, testeable de forma aislada e imposible de eludir: si un Value Object se construye con éxito, la invariante está cumplida. Los DTOs de la capa de transporte siguen usando tipos primitivos (`string`) para simplicidad de serialización.

@@ -131,7 +131,7 @@ describe('CreateCertificateUseCase', () => {
 
     await expect(useCase.execute(dto)).rejects.toBeInstanceOf(ValidationError);
     await expect(useCase.execute(dto)).rejects.toMatchObject({
-      code: ErrorCode.INVALID_EMAIL_LIST,
+      code: ErrorCode.INVALID_LANGUAGE_CODE,
     });
   });
 

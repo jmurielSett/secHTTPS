@@ -2,6 +2,9 @@ import { Certificate, CertificateStatus, UpdateCertificateDTO } from '../../../t
 import { ErrorCode, NotFoundError, ValidationError } from '../../../types/errors';
 import { ICertificateRepository } from '../../repositories/ICertificateRepository';
 import { CertificateExpirationService } from '../../services/CertificateExpirationService';
+import { CertificateDateRange } from '../../valueObjects/CertificateDateRange';
+import { EmailAddress } from '../../valueObjects/EmailAddress';
+import { LanguageCode } from '../../valueObjects/LanguageCode';
 
 export class UpdateCertificateUseCase {
   constructor(
@@ -33,21 +36,19 @@ export class UpdateCertificateUseCase {
     // Validar que expirationDate sea posterior a startDate
     const finalStartDate = data.startDate || certificate.startDate;
     const finalExpirationDate = data.expirationDate || certificate.expirationDate;
-    
-    if (new Date(finalExpirationDate) <= new Date(finalStartDate)) {
-      throw new ValidationError(
-        ErrorCode.INVALID_DATE_RANGE,
-        'La fecha de expiración debe ser posterior a la fecha de inicio'
-      );
-    }
+    CertificateDateRange.create(finalStartDate, finalExpirationDate);
 
-    // Validar responsibleEmails si se proporciona
-    if (data.responsibleEmails !== undefined) {
-      if (!Array.isArray(data.responsibleEmails) || data.responsibleEmails.length === 0) {
+    // Validar responsibleContacts si se proporciona
+    if (data.responsibleContacts !== undefined) {
+      if (!Array.isArray(data.responsibleContacts) || data.responsibleContacts.length === 0) {
         throw new ValidationError(
           ErrorCode.INVALID_EMAIL_LIST,
-          'responsibleEmails debe ser un array con al menos un email'
+          'responsibleContacts debe ser un array con al menos un contacto'
         );
+      }
+      for (const contact of data.responsibleContacts) {
+        EmailAddress.create(contact.email);
+        LanguageCode.create(contact.language);
       }
     }
 
