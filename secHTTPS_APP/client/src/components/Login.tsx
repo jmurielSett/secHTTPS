@@ -64,17 +64,8 @@ export function Login({ onLoginSuccess }: Readonly<LoginProps>) {
         throw new Error('Error al iniciar sesión. Por favor, verifica tus datos e intenta nuevamente.');
       }
 
-      const data = await response.json();
-
       // ✅ Los tokens ya están en cookies httpOnly (enviadas por auth_APP)
-      // NO necesitamos guardar tokens en localStorage
-
-      // Guardamos solo datos del usuario (no sensibles)
-      localStorage.setItem('user', JSON.stringify({
-        id: data.user.id,
-        username: data.user.username,
-        role: data.user.role
-      }));
+      // NO guardamos datos sensibles en localStorage
 
       // Verificar conexión con el servidor backend antes de pasar al Dashboard
       try {
@@ -88,20 +79,41 @@ export function Login({ onLoginSuccess }: Readonly<LoginProps>) {
         if (!backendResponse.ok) {
           throw new Error('Backend server not responding');
         }
-      } catch (backendError) {
-        console.error('❌ Error al verificar conexión con backend');
-        // Limpiar datos de usuario si no hay conexión con backend
-        localStorage.removeItem('user');
+
+        // Verificar que podemos obtener datos del usuario desde el backend
+        const userDataResponse = await fetch(`${BACKEND_URL}/trpc/certificate.getCurrentUser`, {
+          credentials: 'include',
+          headers: {
+            'Content-Type': 'application/json'
+          }
+        });
+
+        if (!userDataResponse.ok) {
+          throw new Error('Cannot fetch user data from backend');
+        }
+
+      } catch (backendError: unknown) {
+        console.error('❌ Error al verificar conexión con backend', backendError);
         throw new Error('Servicio no disponible temporalmente. Por favor, contacte con el administrador.');
       }
+
+      // 🔒 SEGURO: Solo guardamos un flag de sesión (sin datos sensibles)
+      // Los roles y datos del usuario se obtienen del token httpOnly cookie
+      localStorage.setItem('hasSession', 'true');
 
       console.log('✅ Login exitoso');
       onLoginSuccess();
 
     } catch (err: any) {
-      console.error('❌ Error en login');
-      // Mensaje genérico según OWASP - no revelar detalles del sistema
-      setError(err.message || 'Error de autenticación. Por favor, intenta nuevamente.');
+      console.error('❌ Error en login', err);
+      
+      // Detectar errores de conexión específicos
+      if (err.message.includes('Failed to fetch') || err.name === 'TypeError') {
+        setError('No se puede conectar con el servidor de autenticación. Por favor, prueba en unos momentos.');
+      } else {
+        // Mensaje genérico según OWASP - no revelar detalles del sistema
+        setError(err.message || 'Error de autenticación. Por favor, intenta nuevamente.');
+      }
     } finally {
       setIsLoading(false);
     }

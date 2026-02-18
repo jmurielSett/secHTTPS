@@ -3,6 +3,7 @@
  * Expone los casos de uso de certificados a través de tRPC
  */
 import { z } from 'zod';
+import { CreateCertificateUseCase } from '../../../domain/usecases/certificates/CreateCertificateUseCase';
 import { GetCertificatesUseCase } from '../../../domain/usecases/certificates/GetCertificatesUseCase';
 import { protectedProcedure, publicProcedure, router } from '../trpc';
 
@@ -17,6 +18,24 @@ const getCertificatesSchema = z.object({
   status: z.enum(['ACTIVE', 'DELETED']).optional(),
   expirationStatus: z.enum(['NORMAL', 'WARNING', 'EXPIRED']).optional()
 }).optional();
+
+/**
+ * Schema de validación para crear un certificado
+ */
+const createCertificateSchema = z.object({
+  fileName: z.string().min(1, 'El nombre del archivo es obligatorio'),
+  startDate: z.string().min(1, 'La fecha de inicio es obligatoria'),
+  expirationDate: z.string().min(1, 'La fecha de expiración es obligatoria'),
+  server: z.string().min(1, 'El servidor es obligatorio'),
+  filePath: z.string().min(1, 'La ruta del archivo es obligatoria'),
+  client: z.string().min(1, 'El cliente es obligatorio'),
+  configPath: z.string().min(1, 'La ruta de configuración es obligatoria'),
+  responsibleContacts: z.array(z.object({
+    email: z.string().email(),
+    language: z.string().min(2, 'El idioma debe ser un código ISO de 2 letras'),
+    name: z.string().optional()
+  })).min(1, 'Debe haber al menos un contacto responsable')
+});
 
 /**
  * Router de certificados
@@ -45,7 +64,42 @@ export const certificateRouter = router({
     }),
 
   /**
-   * Health check simple para verificar que tRPC está funcionando
+   * Crear un nuevo certificado
+   * Mutation: /trpc/certificate.createCertificate
+   * 🔒 PROTEGIDO - Requiere autenticación
+   */
+  createCertificate: protectedProcedure
+    .input(createCertificateSchema)
+    .mutation(async ({ input, ctx }) => {
+      console.log(`[tRPC] User ${ctx.username} (${ctx.userId}) creating certificate`);
+      
+      const createCertificateUseCase = new CreateCertificateUseCase(
+        ctx.certificateRepository,
+        ctx.notificationRepository,
+        undefined, // emailService - TODO: Agregar al contexto cuando esté disponible
+        undefined  // localizationService - TODO: Agregar al contexto cuando esté disponible
+      );
+      
+      const certificate = await createCertificateUseCase.execute(input);
+      
+      return certificate;
+    }),
+
+  /**   * Obtener datos del usuario actual (incluyendo roles del token JWT)
+   * Query: /trpc/certificate.getCurrentUser
+   * 🔒 PROTEGIDO - Requiere autenticación
+   */
+  getCurrentUser: protectedProcedure
+    .query(({ ctx }) => {
+      return {
+        userId: ctx.userId,
+        username: ctx.username,
+        applicationName: ctx.applicationName,
+        roles: ctx.roles || []
+      };
+    }),
+
+  /**   * Health check simple para verificar que tRPC está funcionando
    * Query: /trpc/certificate.hello
    * ✅ PÚBLICO - No requiere autenticación
    */

@@ -14,9 +14,11 @@ export interface CertificateFiltersValue {
 
 interface CertificateFiltersProps {
   onFiltersChange: (filters: CertificateFiltersValue) => void;
+  isCollapsed?: boolean;
+  onToggleCollapse?: () => void;
 }
 
-export function CertificateFilters({ onFiltersChange }: Readonly<CertificateFiltersProps>) {
+export function CertificateFilters({ onFiltersChange, isCollapsed = false, onToggleCollapse }: Readonly<CertificateFiltersProps>) {
   const [filters, setFilters] = useState<CertificateFiltersValue>({ status: CertificateStatus.ACTIVE });
 
   // Notificar filtros iniciales al montar el componente
@@ -43,7 +45,14 @@ export function CertificateFilters({ onFiltersChange }: Readonly<CertificateFilt
   return (
     <div className="certificate-filters">
       <div className="filters-header">
-        <h3>🔍 Certificados</h3>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+          {onToggleCollapse && (
+            <button onClick={onToggleCollapse} className="collapse-btn" title={isCollapsed ? 'Expandir filtros' : 'Colapsar filtros'}>
+              {isCollapsed ? '▼' : '▲'}
+            </button>
+          )}
+          <h3>🔍 Certificados</h3>
+        </div>
         {hasActiveFilters && (
           <button onClick={handleClearFilters} className="clear-filters-btn">
             Limpiar filtros
@@ -51,7 +60,8 @@ export function CertificateFilters({ onFiltersChange }: Readonly<CertificateFilt
         )}
       </div>
 
-      <div className="filters-content">
+      {!isCollapsed && (
+        <div className="filters-content">
         <div className="filters-inputs">
           <div className="filter-group">
             <input
@@ -159,6 +169,7 @@ export function CertificateFilters({ onFiltersChange }: Readonly<CertificateFilt
           </div>
         </div>
       </div>
+      )}
     </div>
   );
 }

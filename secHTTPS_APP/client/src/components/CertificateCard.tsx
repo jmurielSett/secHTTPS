@@ -18,16 +18,40 @@ interface Certificate {
 
 interface CertificateCardProps {
   certificate: Certificate;
+  onClick?: () => void;
 }
 
-export function CertificateCard({ certificate }: Readonly<CertificateCardProps>) {
+export function CertificateCard({ certificate, onClick }: Readonly<CertificateCardProps>) {
+  const getExpirationTooltip = (status: string) => {
+    switch (status.toUpperCase()) {
+      case 'NORMAL':
+        return 'Certificado vigente: El certificado está activo y lejos de su fecha de expiración';
+      case 'WARNING':
+        return 'Próximo a vencer: El certificado está cerca de su fecha de expiración y requiere atención';
+      case 'EXPIRED':
+        return 'Certificado vencido: El certificado ha expirado y debe renovarse inmediatamente';
+      default:
+        return 'Estado de expiración del certificado';
+    }
+  };
+
   return (
-    <div className="certificate-card">
+    <div 
+      className="certificate-card" 
+      onClick={onClick} 
+      onKeyDown={(e) => e.key === 'Enter' && onClick?.()} 
+      role="button"
+      tabIndex={onClick ? 0 : undefined}
+      style={{ cursor: onClick ? 'pointer' : 'default' }}
+    >
       <h3 title={certificate.fileName}>{certificate.fileName}</h3>
       
       {/* Header con badge de expiración */}
       <div className="cert-header">
-        <span className={`expiration-badge ${certificate.expirationStatus.toLowerCase()}`}>
+        <span 
+          className={`expiration-badge ${certificate.expirationStatus.toLowerCase()}`}
+          title={getExpirationTooltip(certificate.expirationStatus)}
+        >
           {certificate.expirationStatus}
         </span>
       </div>

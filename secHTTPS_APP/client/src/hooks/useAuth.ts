@@ -1,51 +1,67 @@
 import { useEffect, useState } from 'react';
+import { trpc } from '../utils/trpc';
 
 const AUTH_APP_URL = import.meta.env.VITE_AUTH_APP_URL || 'http://localhost:4000';
+
+interface UserData {
+  userId: string;
+  username: string;
+  roles: string[];
+}
 
 interface UseAuthReturn {
   isAuthenticated: boolean;
   isLoading: boolean;
-  user: { username: string } | null;
+  user: UserData | null;
   handleLoginSuccess: () => void;
   handleLogout: () => Promise<void>;
 }
 
 /**
  * Custom hook para manejar autenticación
+ * 🔒 SEGURO: Los datos del usuario (incluyendo roles) se obtienen del token JWT
+ * en httpOnly cookie, NO se guardan en localStorage
  */
 export function useAuth(): UseAuthReturn {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
-  const [user, setUser] = useState<{ username: string } | null>(null);
+
+  // Verificar si existe un flag de sesión en localStorage (solo para saber si intentar obtener usuario)
+  const hasSession = localStorage.getItem('hasSession') === 'true';
+
+  // Obtener datos del usuario desde el backend (lee el token JWT de la httpOnly cookie)
+  // Solo hace la query si hay una sesión activa
+  const userQuery = trpc.certificate.getCurrentUser.useQuery(undefined, {
+    enabled: hasSession, // Solo ejecuta la query si hay sesión
+    retry: false // No reintentar si falla (token expirado/inválido)
+  });
 
   useEffect(() => {
-    // Verificar si hay datos de usuario en localStorage
-    const userStr = localStorage.getItem('user');
-    if (userStr) {
-      try {
-        const userData = JSON.parse(userStr);
-        setUser(userData);
-        setIsAuthenticated(true);
-      } catch (error) {
-        console.error('Error al parsear datos de usuario:', error);
-        localStorage.removeItem('user');
-      }
+    // Si la query falla (token expirado/inválido), limpiar sesión
+    if (userQuery.isError && hasSession) {
+      localStorage.removeItem('hasSession');
+      setIsAuthenticated(false);
     }
-    setIsLoading(false);
-  }, []);
+    
+    // Sincronizar estado de autenticación con la query
+    if (userQuery.isSuccess && userQuery.data) {
+      setIsAuthenticated(true);
+    } else if (userQuery.isError) {
+      setIsAuthenticated(false);
+    }
+    
+    // Marcar como cargado cuando la query termine (o no esté habilitada)
+    if (!hasSession || userQuery.isSuccess || userQuery.isError) {
+      setIsLoading(false);
+    }
+  }, [userQuery.isSuccess, userQuery.isError, userQuery.data, hasSession]);
 
   const handleLoginSuccess = () => {
-    // Recargar datos del usuario
-    const userStr = localStorage.getItem('user');
-    if (userStr) {
-      try {
-        const userData = JSON.parse(userStr);
-        setUser(userData);
-      } catch (error) {
-        console.error('Error al parsear datos de usuario:', error);
-      }
-    }
+    // Marcar que hay una sesión activa
+    localStorage.setItem('hasSession', 'true');
     setIsAuthenticated(true);
+    // La query se ejecutará automáticamente cuando hasSession cambie
+    userQuery.refetch();
   };
 
   const handleLogout = async () => {
@@ -58,17 +74,16 @@ export function useAuth(): UseAuthReturn {
     } catch (error) {
       console.error('Error en logout:', error);
     } finally {
-      // Limpiar datos locales
-      localStorage.removeItem('user');
-      setUser(null);
+      // Limpiar flag de sesión (NO guardamos datos sensibles)
+      localStorage.removeItem('hasSession');
       setIsAuthenticated(false);
     }
   };
 
   return {
     isAuthenticated,
-    isLoading,
-    user,
+    isLoading: isLoading || userQuery.isLoading,
+    user: userQuery.data || null,
     handleLoginSuccess,
     handleLogout
   };

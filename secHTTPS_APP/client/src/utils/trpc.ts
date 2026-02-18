@@ -16,6 +16,7 @@ export const trpc = createTRPCReact<AppRouter>();
 
 /**
  * Refresh automático de tokens cuando expiran
+ * 🔒 SEGURO: No guarda datos sensibles en localStorage
  */
 async function refreshTokens(): Promise<boolean> {
   try {
@@ -28,18 +29,7 @@ async function refreshTokens(): Promise<boolean> {
       return false;
     }
 
-    const data = await response.json();
     console.log('🔄 Tokens renovados automáticamente');
-    
-    // Actualizar datos del usuario en localStorage si vienen
-    if (data.user) {
-      localStorage.setItem('user', JSON.stringify({
-        id: data.user.id,
-        username: data.user.username,
-        role: data.user.role || data.user.roles?.[0]
-      }));
-    }
-    
     return true;
   } catch (error) {
     console.error('❌ Error al renovar tokens:', error);
@@ -72,7 +62,7 @@ async function fetchWithAutoRefresh(url: RequestInfo | URL, options?: RequestIni
     } else {
       // Refresh falló, limpiar sesión
       console.log('❌ Refresh token expirado, cerrando sesión...');
-      localStorage.removeItem('user');
+      localStorage.removeItem('hasSession');
       globalThis.location.href = '/?sessionExpired=true'; // Redirigir a login con aviso
     }
   }

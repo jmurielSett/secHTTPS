@@ -102,15 +102,3 @@
   background: #ffebee;
   color: #c62828;
 }
-
-/* Responsive: ajustar layout en móviles */
-@media (max-width: 640px) {
-  .cert-row {
-    grid-template-columns: 1fr;
-    gap: 0.25rem;
-  }
-  
-  .cert-label {
-    font-weight: 600;
-  }
-}

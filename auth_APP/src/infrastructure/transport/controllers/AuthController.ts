@@ -94,7 +94,7 @@ export class AuthController {
   async refresh(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       // Try to get refresh token from cookies first, then from body as fallback
-      const refreshToken = req.cookies?.refreshToken || req.body.refreshToken;
+      const refreshToken = req.cookies?.refreshToken || req.body?.refreshToken;
 
       // Validar que el refreshToken está presente
       if (!refreshToken) {
