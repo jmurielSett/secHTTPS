@@ -42,17 +42,20 @@ export class AppError extends Error {
 export class ValidationError extends AppError {
   constructor(code: ErrorCode, message: string) {
     super(code, message, 400);
+    Object.setPrototypeOf(this, ValidationError.prototype);
   }
 }
 
 export class NotFoundError extends AppError {
   constructor(code: ErrorCode, message: string) {
     super(code, message, 404);
+    Object.setPrototypeOf(this, NotFoundError.prototype);
   }
 }
 
 export class InternalError extends AppError {
   constructor(message: string = 'Error interno del servidor') {
     super(ErrorCode.INTERNAL_ERROR, message, 500);
+    Object.setPrototypeOf(this, InternalError.prototype);
   }
 }
