@@ -17,6 +17,24 @@ interface CertificatesListProps {
 
 type ViewMode = 'cards' | 'table';
 
+function CertificatesCount({ total, filters }: Readonly<{ total: number; filters: CertificateFiltersValue }>) {
+  const plural = total === 1 ? '' : 's';
+  const hasFilters = Object.values(filters).some(v => v !== undefined && v !== '');
+  if (!hasFilters) {
+    return <>Total: {total} certificado{plural}</>;
+  }
+  return (
+    <>Mostrando {total} certificado{plural}{' '}
+      {filters.status === CertificateStatus.ACTIVE && (
+        <span style={{ color: '#16a34a', fontWeight: 600 }}>activo{plural}</span>
+      )}
+      {filters.status === CertificateStatus.DELETED && (
+        <span style={{ color: '#dc2626', fontWeight: 600 }}>eliminado{plural}</span>
+      )}
+    </>
+  );
+}
+
 export function CertificatesList({ onLogout, showServerError }: Readonly<CertificatesListProps>) {
   const [filters, setFilters] = useState<CertificateFiltersValue>({});
   const [viewMode, setViewMode] = useState<ViewMode>('cards');
@@ -76,18 +94,7 @@ export function CertificatesList({ onLogout, showServerError }: Readonly<Certifi
         <div className="view-selector-header">
           {certificatesQuery.data && (
             <div className="certificates-count">
-              {hasActiveFilters ? (
-                <>Mostrando {certificatesQuery.data.total} certificado{certificatesQuery.data.total === 1 ? '' : 's'}{' '}
-                  {filters.status === CertificateStatus.ACTIVE && (
-                    <span style={{ color: '#16a34a', fontWeight: 600 }}>activo{certificatesQuery.data.total === 1 ? '' : 's'}</span>
-                  )}
-                  {filters.status === CertificateStatus.DELETED && (
-                    <span style={{ color: '#dc2626', fontWeight: 600 }}>eliminado{certificatesQuery.data.total === 1 ? '' : 's'}</span>
-                  )}
-                </>
-              ) : (
-                <>Total: {certificatesQuery.data.total} certificado{certificatesQuery.data.total === 1 ? '' : 's'}</>
-              )}
+              <CertificatesCount total={certificatesQuery.data.total} filters={filters} />
             </div>
           )}
           

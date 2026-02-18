@@ -76,10 +76,10 @@ describe('LDAP User Sync - Integration Test', () => {
     expect(response.status).toBe(200);
     const cookies = response.headers['set-cookie'] as string[] | undefined;
     const accessToken = cookies
-      ?.map(c => c.match(/^accessToken=([^;]+)/)?.[1])
+      ?.map(c => /^accessToken=([^;]+)/.exec(c)?.[1])
       .find(Boolean) ?? '';
     const refreshToken = cookies
-      ?.map(c => c.match(/^refreshToken=([^;]+)/)?.[1])
+      ?.map(c => /^refreshToken=([^;]+)/.exec(c)?.[1])
       .find(Boolean);
     expect(accessToken).toBeTruthy();
     expect(refreshToken).toBeTruthy();

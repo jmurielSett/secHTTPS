@@ -7,7 +7,7 @@ import { createApp } from '../../src/app';
 function extractCookie(cookies: string[] | undefined, name: string): string | undefined {
   if (!cookies) return undefined;
   for (const cookie of cookies) {
-    const match = cookie.match(new RegExp(`^${name}=([^;]+)`));
+    const match = new RegExp(`^${name}=([^;]+)`).exec(cookie);
     if (match) return decodeURIComponent(match[1]);
   }
   return undefined;

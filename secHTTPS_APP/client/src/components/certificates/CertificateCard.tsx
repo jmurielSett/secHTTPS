@@ -36,12 +36,10 @@ export function CertificateCard({ certificate, onClick }: Readonly<CertificateCa
   };
 
   return (
-    <div 
-      className="certificate-card" 
-      onClick={onClick} 
-      onKeyDown={(e) => e.key === 'Enter' && onClick?.()} 
-      role="button"
-      tabIndex={onClick ? 0 : undefined}
+    <button
+      type="button"
+      className="certificate-card"
+      onClick={onClick}
       style={{ cursor: onClick ? 'pointer' : 'default' }}
     >
       <h3 title={certificate.fileName}>{certificate.fileName}</h3>
@@ -81,6 +79,6 @@ export function CertificateCard({ certificate, onClick }: Readonly<CertificateCa
           </span>
         </div>
       </div>
-    </div>
+    </button>
   );
 }

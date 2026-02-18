@@ -5,9 +5,7 @@ import { logError, logInfo } from './utils/logger';
 const PORT = process.env.PORT || 4000;
 const USE_POSTGRES = process.env.USE_POSTGRES === 'true';
 
-// Using IIFE for async execution in CommonJS
-// eslint-disable-next-line @typescript-eslint/no-floating-promises
-(async () => {
+async function main() {
   try {
     logInfo('🚀 Starting Auth Service...');
     
@@ -26,4 +24,6 @@ const USE_POSTGRES = process.env.USE_POSTGRES === 'true';
     logError('❌ Failed to start Auth Service:', err instanceof Error ? err : undefined);
     process.exit(1);
   }
-})();
+}
+
+void main();
