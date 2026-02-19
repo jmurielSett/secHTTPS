@@ -1,4 +1,5 @@
 import { Application } from 'express';
+import jwt from 'jsonwebtoken';
 import request from 'supertest';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { createApp } from '../../src/app';
@@ -8,10 +9,21 @@ import { ExpirationStatus } from '../../src/types/shared';
 
 describe('Notifications API', () => {
   let app: Application;
+  let authCookie: string;
+
+  const api = {
+    get:  (url: string) => request(app).get(url).set('Cookie', authCookie),
+    post: (url: string) => request(app).post(url).set('Cookie', authCookie),
+  };
 
   beforeEach(async () => {
     const context = await createApp();
     app = context.app;
+    authCookie = `accessToken=${jwt.sign(
+      { userId: 'test-user', username: 'test', type: 'access', roles: ['admin'], applicationName: 'secHTTPS_APP' },
+      process.env.JWT_ACCESS_SECRET!,
+      { expiresIn: '1h' }
+    )}`;
   });
 
   // Helper para crear un certificado de prueba
@@ -27,8 +39,7 @@ describe('Notifications API', () => {
       responsibleContacts: [{ email: 'test@test.com', language: 'es' }]
     };
 
-    const response = await request(app)
-      .post('/api/certif')
+    const response = await api.post('/api/certif')
       .send({ ...defaultCertificate, ...overrides });
     
     return response.body;
@@ -46,8 +57,7 @@ describe('Notifications API', () => {
         result: NotificationResult.SENT
       };
 
-      const response = await request(app)
-        .post('/api/notif')
+      const response = await api.post('/api/notif')
         .send(notificationData)
         .expect(201);
 
@@ -73,8 +83,7 @@ describe('Notifications API', () => {
         errorMessage: 'SMTP connection timeout'
       };
 
-      const response = await request(app)
-        .post('/api/notif')
+      const response = await api.post('/api/notif')
         .send(notificationData)
         .expect(201);
 
@@ -92,8 +101,7 @@ describe('Notifications API', () => {
         // Faltan recipientEmails, subject, etc.
       };
 
-      const response = await request(app)
-        .post('/api/notif')
+      const response = await api.post('/api/notif')
         .send(incompleteNotification)
         .expect(400);
 
@@ -110,8 +118,7 @@ describe('Notifications API', () => {
         result: NotificationResult.SENT
       };
 
-      const response = await request(app)
-        .post('/api/notif')
+      const response = await api.post('/api/notif')
         .send(invalidNotification)
         .expect(400);
 
@@ -130,8 +137,7 @@ describe('Notifications API', () => {
         result: NotificationResult.SENT
       };
 
-      const response = await request(app)
-        .post('/api/notif')
+      const response = await api.post('/api/notif')
         .send(notificationData)
         .expect(404);
 
@@ -150,8 +156,7 @@ describe('Notifications API', () => {
         result: NotificationResult.SENT
       };
 
-      const response = await request(app)
-        .post('/api/notif')
+      const response = await api.post('/api/notif')
         .send(invalidNotification)
         .expect(400);
 
@@ -171,8 +176,7 @@ describe('Notifications API', () => {
         // Falta errorMessage
       };
 
-      const response = await request(app)
-        .post('/api/notif')
+      const response = await api.post('/api/notif')
         .send(invalidNotification)
         .expect(400);
 
@@ -187,7 +191,7 @@ describe('Notifications API', () => {
       const cert2 = await createTestCertificate({ fileName: 'cert-get-2.crt' });
 
       // Crear 3 notificaciones
-      await request(app).post('/api/notif').send({
+      await api.post('/api/notif').send({
         certificateId: cert1.id,
         recipientEmails: ['admin@empresa.com'],
         subject: 'Test 1',
@@ -195,7 +199,7 @@ describe('Notifications API', () => {
         result: NotificationResult.SENT
       });
 
-      await request(app).post('/api/notif').send({
+      await api.post('/api/notif').send({
         certificateId: cert2.id,
         recipientEmails: ['admin@empresa.com'],
         subject: 'Test 2',
@@ -204,7 +208,7 @@ describe('Notifications API', () => {
         errorMessage: 'Error test'
       });
 
-      await request(app).post('/api/notif').send({
+      await api.post('/api/notif').send({
         certificateId: cert1.id,
         recipientEmails: ['admin@empresa.com'],
         subject: 'Test 3',
@@ -212,8 +216,7 @@ describe('Notifications API', () => {
         result: NotificationResult.SENT
       });
 
-      const response = await request(app)
-        .get('/api/notif')
+      const response = await api.get('/api/notif')
         .expect(200);
 
       expect(response.body).toHaveProperty('total', 3);
@@ -224,7 +227,7 @@ describe('Notifications API', () => {
       const cert1 = await createTestCertificate({ fileName: 'cert-filter-1.crt' });
       const cert2 = await createTestCertificate({ fileName: 'cert-filter-2.crt' });
 
-      await request(app).post('/api/notif').send({
+      await api.post('/api/notif').send({
         certificateId: cert1.id,
         recipientEmails: ['admin@empresa.com'],
         subject: 'Cert 1 - Notif 1',
@@ -232,7 +235,7 @@ describe('Notifications API', () => {
         result: NotificationResult.SENT
       });
 
-      await request(app).post('/api/notif').send({
+      await api.post('/api/notif').send({
         certificateId: cert2.id,
         recipientEmails: ['admin@empresa.com'],
         subject: 'Cert 2 - Notif 1',
@@ -240,7 +243,7 @@ describe('Notifications API', () => {
         result: NotificationResult.SENT
       });
 
-      await request(app).post('/api/notif').send({
+      await api.post('/api/notif').send({
         certificateId: cert1.id,
         recipientEmails: ['admin@empresa.com'],
         subject: 'Cert 1 - Notif 2',
@@ -248,8 +251,7 @@ describe('Notifications API', () => {
         result: NotificationResult.SENT
       });
 
-      const response = await request(app)
-        .get('/api/notif')
+      const response = await api.get('/api/notif')
         .query({ certificateId: cert1.id })
         .expect(200);
 
@@ -262,7 +264,7 @@ describe('Notifications API', () => {
     it('debería filtrar por result SENT', async () => {
       const cert = await createTestCertificate({ fileName: 'cert-result.crt' });
 
-      await request(app).post('/api/notif').send({
+      await api.post('/api/notif').send({
         certificateId: cert.id,
         recipientEmails: ['admin@empresa.com'],
         subject: 'Test SENT',
@@ -270,7 +272,7 @@ describe('Notifications API', () => {
         result: NotificationResult.SENT
       });
 
-      await request(app).post('/api/notif').send({
+      await api.post('/api/notif').send({
         certificateId: cert.id,
         recipientEmails: ['admin@empresa.com'],
         subject: 'Test ERROR',
@@ -279,8 +281,7 @@ describe('Notifications API', () => {
         errorMessage: 'Error'
       });
 
-      const response = await request(app)
-        .get('/api/notif')
+      const response = await api.get('/api/notif')
         .query({ result: NotificationResult.SENT })
         .expect(200);
 
@@ -291,7 +292,7 @@ describe('Notifications API', () => {
     it('debería filtrar por expirationStatus WARNING', async () => {
       const cert = await createTestCertificate({ fileName: 'cert-expstatus.crt' });
 
-      await request(app).post('/api/notif').send({
+      await api.post('/api/notif').send({
         certificateId: cert.id,
         recipientEmails: ['admin@empresa.com'],
         subject: 'Test WARNING',
@@ -299,7 +300,7 @@ describe('Notifications API', () => {
         result: NotificationResult.SENT
       });
 
-      await request(app).post('/api/notif').send({
+      await api.post('/api/notif').send({
         certificateId: cert.id,
         recipientEmails: ['admin@empresa.com'],
         subject: 'Test EXPIRED',
@@ -307,8 +308,7 @@ describe('Notifications API', () => {
         result: NotificationResult.SENT
       });
 
-      const response = await request(app)
-        .get('/api/notif')
+      const response = await api.get('/api/notif')
         .query({ expirationStatus: ExpirationStatus.WARNING })
         .expect(200);
 
@@ -320,7 +320,7 @@ describe('Notifications API', () => {
       const cert1 = await createTestCertificate({ fileName: 'cert-multi-1.crt' });
       const cert2 = await createTestCertificate({ fileName: 'cert-multi-2.crt' });
 
-      await request(app).post('/api/notif').send({
+      await api.post('/api/notif').send({
         certificateId: cert1.id,
         recipientEmails: ['admin@empresa.com'],
         subject: 'Cert1 WARNING SENT',
@@ -328,7 +328,7 @@ describe('Notifications API', () => {
         result: NotificationResult.SENT
       });
 
-      await request(app).post('/api/notif').send({
+      await api.post('/api/notif').send({
         certificateId: cert1.id,
         recipientEmails: ['admin@empresa.com'],
         subject: 'Cert1 EXPIRED SENT',
@@ -336,7 +336,7 @@ describe('Notifications API', () => {
         result: NotificationResult.SENT
       });
 
-      await request(app).post('/api/notif').send({
+      await api.post('/api/notif').send({
         certificateId: cert2.id,
         recipientEmails: ['admin@empresa.com'],
         subject: 'Cert2 WARNING SENT',
@@ -344,8 +344,7 @@ describe('Notifications API', () => {
         result: NotificationResult.SENT
       });
 
-      const response = await request(app)
-        .get('/api/notif')
+      const response = await api.get('/api/notif')
         .query({ 
           certificateId: cert1.id,
           expirationStatus: ExpirationStatus.WARNING
@@ -360,7 +359,7 @@ describe('Notifications API', () => {
     it('debería retornar lista vacía si no hay coincidencias con los filtros', async () => {
       const cert = await createTestCertificate({ fileName: 'cert-empty.crt' });
 
-      await request(app).post('/api/notif').send({
+      await api.post('/api/notif').send({
         certificateId: cert.id,
         recipientEmails: ['admin@empresa.com'],
         subject: 'Test',
@@ -368,8 +367,7 @@ describe('Notifications API', () => {
         result: NotificationResult.SENT
       });
 
-      const response = await request(app)
-        .get('/api/notif')
+      const response = await api.get('/api/notif')
         .query({ result: NotificationResult.ERROR })
         .expect(200);
 
