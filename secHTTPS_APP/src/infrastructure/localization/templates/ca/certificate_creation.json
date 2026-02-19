@@ -1,0 +1,16 @@
+{
+  "subject": "✅ Nou Certificat Registrat: {{fileName}}",
+  "greeting": "S'ha registrat un nou certificat SSL/TLS al sistema",
+  "description": "A continuació trobareu els detalls del certificat acabat de registrar:",
+  "labels": {
+    "fileName": "Nom del fitxer",
+    "server": "Servidor",
+    "client": "Client",
+    "expirationDate": "Data d'expiració",
+    "startDate": "Data d'inici",
+    "filePath": "Ruta del fitxer",
+    "configPath": "Ruta de configuració"
+  },
+  "footer": "Aquest és un missatge automàtic del Sistema de Monitoratge de Certificats SSL/TLS",
+  "systemName": "SecHTTPS Monitor"
+}

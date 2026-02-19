@@ -1,4 +1,5 @@
 import { Application } from 'express';
+import jwt from 'jsonwebtoken';
 import request from 'supertest';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { createApp } from '../../src/app';
@@ -8,10 +9,27 @@ import { ExpirationStatus } from '../../src/types/shared';
 
 describe('Certificates API - /api/certif', () => {
   let app: Application;
+  let authCookie: string;
+
+  // Helpers que incluyen automáticamente la cookie de autenticación.
+  // Usan closures sobre `app` y `authCookie`, cuyos valores se actualizan
+  // en cada beforeEach, por lo que siempre apuntan al contexto correcto.
+  const api = {
+    get:   (url: string) => request(app).get(url).set('Cookie', authCookie),
+    post:  (url: string) => request(app).post(url).set('Cookie', authCookie),
+    put:   (url: string) => request(app).put(url).set('Cookie', authCookie),
+    patch: (url: string) => request(app).patch(url).set('Cookie', authCookie),
+  };
 
   beforeEach(async () => {
     const context = await createApp();
     app = context.app;
+    // Token JWT de test firmado con el mismo secret que usa el servidor
+    authCookie = `accessToken=${jwt.sign(
+      { userId: 'test-user', username: 'test', type: 'access', roles: ['admin'], applicationName: 'secHTTPS_APP' },
+      process.env.JWT_ACCESS_SECRET!,
+      { expiresIn: '1h' }
+    )}`;
   });
 
   // Helper para crear certificados de prueba
@@ -27,8 +45,7 @@ describe('Certificates API - /api/certif', () => {
       responsibleContacts: [{ email: 'test@test.com', language: 'es' }]
     };
 
-    const response = await request(app)
-      .post('/api/certif')
+    const response = await api.post('/api/certif')
       .send({ ...defaultCertificate, ...overrides });
     
     return response.body;
@@ -50,8 +67,7 @@ describe('Certificates API - /api/certif', () => {
         ]
       };
 
-      const response = await request(app)
-        .post('/api/certif')
+      const response = await api.post('/api/certif')
         .send(newCertificate)
         .expect(201);
 
@@ -69,8 +85,7 @@ describe('Certificates API - /api/certif', () => {
         // Falta startDate, expirationDate, etc.
       };
 
-      const response = await request(app)
-        .post('/api/certif')
+      const response = await api.post('/api/certif')
         .send(incompleteCertificate)
         .expect(400);
 
@@ -90,8 +105,7 @@ describe('Certificates API - /api/certif', () => {
         responsibleContacts: [{ email: 'admin@empresa.com', language: 'es' }]
       };
 
-      const response = await request(app)
-        .post('/api/certif')
+      const response = await api.post('/api/certif')
         .send(invalidCertificate)
         .expect(400);
 
@@ -111,8 +125,7 @@ describe('Certificates API - /api/certif', () => {
         responsibleContacts: []
       };
 
-      const response = await request(app)
-        .post('/api/certif')
+      const response = await api.post('/api/certif')
         .send(invalidCertificate)
         .expect(400);
 
@@ -128,8 +141,7 @@ describe('Certificates API - /api/certif', () => {
       await createTestCertificate({ fileName: 'cert2.crt' });
       await createTestCertificate({ fileName: 'cert3.crt' });
 
-      const response = await request(app)
-        .get('/api/certif')
+      const response = await api.get('/api/certif')
         .expect(200);
 
       expect(response.body).toHaveProperty('total');
@@ -146,8 +158,7 @@ describe('Certificates API - /api/certif', () => {
       await createTestCertificate({ client: 'Empresa XYZ', fileName: 'xyz2.crt' });
       await createTestCertificate({ client: 'Empresa ABC', fileName: 'abc1.crt' });
 
-      const response = await request(app)
-        .get('/api/certif?client=Empresa XYZ')
+      const response = await api.get('/api/certif?client=Empresa XYZ')
         .expect(200);
 
       expect(response.body.total).toBe(2);
@@ -164,8 +175,7 @@ describe('Certificates API - /api/certif', () => {
       await createTestCertificate({ server: 'web-dev-01', fileName: 'dev1.crt' });
       await createTestCertificate({ server: 'web-dev-01', fileName: 'dev2.crt' });
 
-      const response = await request(app)
-        .get('/api/certif?server=web-prod-01')
+      const response = await api.get('/api/certif?server=web-prod-01')
         .expect(200);
 
       expect(response.body.total).toBe(2);
@@ -181,8 +191,7 @@ describe('Certificates API - /api/certif', () => {
       await createTestCertificate({ fileName: 'other-cert.crt' });
       await createTestCertificate({ fileName: 'another-cert.crt' });
 
-      const response = await request(app)
-        .get('/api/certif?fileName=unique-cert.crt')
+      const response = await api.get('/api/certif?fileName=unique-cert.crt')
         .expect(200);
 
       expect(response.body.total).toBe(1);
@@ -197,12 +206,10 @@ describe('Certificates API - /api/certif', () => {
       const cert3 = await createTestCertificate({ fileName: 'todelete.crt' });
 
       // Eliminar uno (cambiar a DELETED)
-      await request(app)
-        .patch(`/api/certif/${cert3.id}/status`)
+      await api.patch(`/api/certif/${cert3.id}/status`)
         .send({ status: CertificateStatus.DELETED });
 
-      const response = await request(app)
-        .get('/api/certif?status=ACTIVE')
+      const response = await api.get('/api/certif?status=ACTIVE')
         .expect(200);
 
       expect(response.body.total).toBeGreaterThanOrEqual(2);
@@ -216,16 +223,13 @@ describe('Certificates API - /api/certif', () => {
       const cert1 = await createTestCertificate({ fileName: 'deleted1.crt' });
       const cert2 = await createTestCertificate({ fileName: 'deleted2.crt' });
 
-      await request(app)
-        .patch(`/api/certif/${cert1.id}/status`)
+      await api.patch(`/api/certif/${cert1.id}/status`)
         .send({ status: CertificateStatus.DELETED });
       
-      await request(app)
-        .patch(`/api/certif/${cert2.id}/status`)
+      await api.patch(`/api/certif/${cert2.id}/status`)
         .send({ status: CertificateStatus.DELETED });
 
-      const response = await request(app)
-        .get('/api/certif?status=DELETED')
+      const response = await api.get('/api/certif?status=DELETED')
         .expect(200);
 
       expect(response.body.total).toBeGreaterThanOrEqual(2);
@@ -253,8 +257,7 @@ describe('Certificates API - /api/certif', () => {
         expirationDate: normalDate.toISOString().split('T')[0]
       });
 
-      const response = await request(app)
-        .get('/api/certif?expirationStatus=WARNING')
+      const response = await api.get('/api/certif?expirationStatus=WARNING')
         .expect(200);
 
       expect(response.body.total).toBeGreaterThanOrEqual(1);
@@ -274,8 +277,7 @@ describe('Certificates API - /api/certif', () => {
         expirationDate: expiredDate.toISOString().split('T')[0]
       });
 
-      const response = await request(app)
-        .get('/api/certif?expirationStatus=EXPIRED')
+      const response = await api.get('/api/certif?expirationStatus=EXPIRED')
         .expect('Content-Type', /json/)
         .expect(200);
 
@@ -308,8 +310,7 @@ describe('Certificates API - /api/certif', () => {
         expirationDate: '2027-01-01'
       });
 
-      const response = await request(app)
-        .get('/api/certif?client=Empresa XYZ&server=web-prod-01&status=ACTIVE&expirationStatus=NORMAL')
+      const response = await api.get('/api/certif?client=Empresa XYZ&server=web-prod-01&status=ACTIVE&expirationStatus=NORMAL')
         .expect(200);
 
       expect(response.body.total).toBeGreaterThanOrEqual(1);
@@ -322,8 +323,7 @@ describe('Certificates API - /api/certif', () => {
     });
 
     it('debería retornar lista vacía si no hay coincidencias', async () => {
-      const response = await request(app)
-        .get('/api/certif?client=Cliente Inexistente XYZ 999')
+      const response = await api.get('/api/certif?client=Cliente Inexistente XYZ 999')
         .expect(200);
 
       expect(response.body.total).toBe(0);
@@ -336,8 +336,7 @@ describe('Certificates API - /api/certif', () => {
       // Crear un certificado primero
       const cert = await createTestCertificate({ fileName: 'cert-by-id.crt' });
       
-      const response = await request(app)
-        .get(`/api/certif/${cert.id}`)
+      const response = await api.get(`/api/certif/${cert.id}`)
         .expect(200);
 
       expect(response.body).toHaveProperty('id', cert.id);
@@ -358,8 +357,7 @@ describe('Certificates API - /api/certif', () => {
     it('debería retornar 404 si el certificado no existe', async () => {
       const nonExistentId = '999e9999-e99b-99d9-a999-999999999999';
       
-      const response = await request(app)
-        .get(`/api/certif/${nonExistentId}`)
+      const response = await api.get(`/api/certif/${nonExistentId}`)
         .expect(404);
 
       expect(response.body).toHaveProperty('code', ErrorCode.CERTIFICATE_NOT_FOUND);
@@ -370,8 +368,7 @@ describe('Certificates API - /api/certif', () => {
     it('debería retornar 400 si el ID no es un UUID válido', async () => {
       const invalidId = 'invalid-uuid';
       
-      const response = await request(app)
-        .get(`/api/certif/${invalidId}`)
+      const response = await api.get(`/api/certif/${invalidId}`)
         .expect(400);
 
       expect(response.body).toHaveProperty('code', ErrorCode.INVALID_UUID);
@@ -390,8 +387,7 @@ describe('Certificates API - /api/certif', () => {
         responsibleContacts: [{ email: 'nuevo@empresa.com', language: 'es' }]
       };
 
-      const response = await request(app)
-        .put(`/api/certif/${cert.id}`)
+      const response = await api.put(`/api/certif/${cert.id}`)
         .send(updateData)
         .expect(200);
 
@@ -406,8 +402,7 @@ describe('Certificates API - /api/certif', () => {
         fileName: 'nuevo-nombre.crt'
       };
 
-      const response = await request(app)
-        .put(`/api/certif/${nonExistentId}`)
+      const response = await api.put(`/api/certif/${nonExistentId}`)
         .send(updateData)
         .expect(404);
 
@@ -418,16 +413,14 @@ describe('Certificates API - /api/certif', () => {
     it('debería retornar 400 si se intenta modificar un certificado eliminado', async () => {
       // Crear y eliminar un certificado
       const cert = await createTestCertificate({ fileName: 'to-delete.crt' });
-      await request(app)
-        .patch(`/api/certif/${cert.id}/status`)
+      await api.patch(`/api/certif/${cert.id}/status`)
         .send({ status: CertificateStatus.DELETED });
       
       const updateData = {
         fileName: 'nuevo-nombre.crt'
       };
 
-      const response = await request(app)
-        .put(`/api/certif/${cert.id}`)
+      const response = await api.put(`/api/certif/${cert.id}`)
         .send(updateData)
         .expect(400);
 
@@ -445,8 +438,7 @@ describe('Certificates API - /api/certif', () => {
         expirationDate: '2026-01-01'
       };
 
-      const response = await request(app)
-        .put(`/api/certif/${cert.id}`)
+      const response = await api.put(`/api/certif/${cert.id}`)
         .send(invalidUpdate)
         .expect(400);
 
@@ -463,8 +455,7 @@ describe('Certificates API - /api/certif', () => {
         status: CertificateStatus.DELETED
       };
 
-      const response = await request(app)
-        .patch(`/api/certif/${cert.id}/status`)
+      const response = await api.patch(`/api/certif/${cert.id}/status`)
         .send(statusUpdate)
         .expect(200);
 
@@ -479,8 +470,7 @@ describe('Certificates API - /api/certif', () => {
         status: CertificateStatus.DELETED
       };
 
-      const response = await request(app)
-        .patch(`/api/certif/${nonExistentId}/status`)
+      const response = await api.patch(`/api/certif/${nonExistentId}/status`)
         .send(statusUpdate)
         .expect(404);
 
@@ -493,8 +483,7 @@ describe('Certificates API - /api/certif', () => {
       const cert = await createTestCertificate({ fileName: 'already-deleted.crt' });
       
       // Eliminarlo primero
-      await request(app)
-        .patch(`/api/certif/${cert.id}/status`)
+      await api.patch(`/api/certif/${cert.id}/status`)
         .send({ status: CertificateStatus.DELETED });
       
       // Intentar eliminarlo de nuevo
@@ -502,8 +491,7 @@ describe('Certificates API - /api/certif', () => {
         status: CertificateStatus.DELETED
       };
 
-      const response = await request(app)
-        .patch(`/api/certif/${cert.id}/status`)
+      const response = await api.patch(`/api/certif/${cert.id}/status`)
         .send(statusUpdate)
         .expect(400);
 
@@ -519,8 +507,7 @@ describe('Certificates API - /api/certif', () => {
         status: CertificateStatus.ACTIVE
       };
 
-      const response = await request(app)
-        .patch(`/api/certif/${cert.id}/status`)
+      const response = await api.patch(`/api/certif/${cert.id}/status`)
         .send(invalidStatus)
         .expect(400);
 
@@ -534,8 +521,7 @@ describe('Certificates API - /api/certif', () => {
       // Crear un certificado primero
       const cert = await createTestCertificate({ fileName: 'cert-with-notifications.crt' });
 
-      const response = await request(app)
-        .get(`/api/certif/${cert.id}/notifications`)
+      const response = await api.get(`/api/certif/${cert.id}/notifications`)
         .expect(200);
 
       expect(response.body).toHaveProperty('total');
@@ -547,8 +533,7 @@ describe('Certificates API - /api/certif', () => {
     it('debería retornar 404 si el certificado no existe', async () => {
       const nonExistentId = '999e9999-e99b-99d9-a999-999999999999';
 
-      const response = await request(app)
-        .get(`/api/certif/${nonExistentId}/notifications`)
+      const response = await api.get(`/api/certif/${nonExistentId}/notifications`)
         .expect(404);
 
       expect(response.body).toHaveProperty('code', ErrorCode.CERTIFICATE_NOT_FOUND);
@@ -559,8 +544,7 @@ describe('Certificates API - /api/certif', () => {
       // Crear un certificado sin notificaciones
       const cert = await createTestCertificate({ fileName: 'cert-without-notifications.crt' });
 
-      const response = await request(app)
-        .get(`/api/certif/${cert.id}/notifications`)
+      const response = await api.get(`/api/certif/${cert.id}/notifications`)
         .expect(200);
 
       expect(response.body.total).toBe(0);

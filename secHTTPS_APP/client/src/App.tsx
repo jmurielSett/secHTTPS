@@ -1,8 +1,8 @@
 import './App.css';
-import { AppHeader } from './components/AppHeader';
-import { CertificatesList } from './components/CertificatesList';
-import { Login } from './components/Login';
-import { ServerErrorModal } from './components/ServerErrorModal';
+import { Login } from './components/auth/Login';
+import { CertificatesList } from './components/certificates/CertificatesList';
+import { AppHeader } from './components/layout/AppHeader';
+import { ServerErrorModal } from './components/ui/ServerErrorModal';
 import { useAuth } from './hooks/useAuth';
 import { useServerConnection } from './hooks/useServerConnection';
 import { trpc } from './utils/trpc';

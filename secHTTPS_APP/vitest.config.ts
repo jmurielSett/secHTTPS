@@ -1,7 +1,15 @@
+import dotenv from 'dotenv';
 import { defineConfig } from 'vitest/config';
+
+// Cargar .env para que los tests puedan usar las mismas claves que el servidor
+dotenv.config();
 
 export default defineConfig({
   test: {
+    env: {
+      // Clave JWT para tests — lee del .env; fallback solo para CI sin .env
+      JWT_ACCESS_SECRET: process.env.JWT_ACCESS_SECRET ?? 'test-jwt-secret-for-vitest-needs-32-chars!!',
+    },
     exclude: [
       '**/node_modules/**',
       '**/dist/**',

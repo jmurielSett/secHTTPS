@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { ExpirationStatus } from '../../../src/types/shared';
+import { ExpirationStatus } from '../../../../src/types/shared';
 import './CertificatesTable.css';
 
 interface Contact {

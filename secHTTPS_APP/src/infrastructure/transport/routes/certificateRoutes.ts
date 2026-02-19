@@ -12,6 +12,7 @@ import { UpdateCertificateUseCase } from '../../../domain/usecases/certificates/
 import { GetCertificateNotificationsUseCase } from '../../../domain/usecases/notifications/GetCertificateNotificationsUseCase';
 import { LocalizationService } from '../../localization/LocalizationService';
 import { NodemailerEmailService } from '../../messaging/NodemailerEmailService';
+import { authMiddleware } from '../../middleware/authMiddleware';
 import { CertificateController } from '../controllers/CertificateController';
 
 export function createCertificateRouter(
@@ -61,13 +62,13 @@ export function createCertificateRouter(
     getCertificateNotificationsUseCase
   );
   
-  // Register routes
-  router.get('/', (req, res) => certificateController.getCertificates(req, res));
-  router.get('/:id', (req, res) => certificateController.getCertificateById(req, res));
-  router.get('/:id/notifications', (req, res) => certificateController.getCertificateNotifications(req, res));
-  router.post('/', (req, res) => certificateController.createCertificate(req, res));
-  router.put('/:id', (req, res) => certificateController.updateCertificate(req, res));
-  router.patch('/:id/status', (req, res) => certificateController.updateCertificateStatus(req, res));
+  // Register routes — all protected by JWT
+  router.get('/', authMiddleware, (req, res) => certificateController.getCertificates(req, res));
+  router.get('/:id', authMiddleware, (req, res) => certificateController.getCertificateById(req, res));
+  router.get('/:id/notifications', authMiddleware, (req, res) => certificateController.getCertificateNotifications(req, res));
+  router.post('/', authMiddleware, (req, res) => certificateController.createCertificate(req, res));
+  router.put('/:id', authMiddleware, (req, res) => certificateController.updateCertificate(req, res));
+  router.patch('/:id/status', authMiddleware, (req, res) => certificateController.updateCertificateStatus(req, res));
   
   return router;
 }

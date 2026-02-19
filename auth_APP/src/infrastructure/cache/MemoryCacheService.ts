@@ -136,10 +136,6 @@ export class MemoryCacheService {
         cleanedCount++;
       }
     }
-
-    if (cleanedCount > 0) {
-      // logDebug(`[Cache] Cleaned ${cleanedCount} expired entries`);
-    }
   }
 
   /**

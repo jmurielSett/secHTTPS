@@ -15,9 +15,7 @@ declare global {
 // evitando fallos en tests que no establecen JWT secrets en el entorno.
 let _jwtService: JWTService | null = null;
 function getJwtService(): JWTService {
-  if (!_jwtService) {
-    _jwtService = new JWTService();
-  }
+  _jwtService ??= new JWTService();
   return _jwtService;
 }
 

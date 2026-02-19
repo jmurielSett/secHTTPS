@@ -1,5 +1,5 @@
 import { forwardRef, SyntheticEvent, useImperativeHandle, useRef, useState } from 'react';
-import '../components/CreateCertificateModal.css';
+import './CreateCertificateModal.css';
 
 export interface ResponsibleContact {
   email: string;
@@ -199,10 +199,7 @@ export const CertificateForm = forwardRef<CertificateFormHandle, CertificateForm
                   <select id="contactLanguage" value={newContact.language} onChange={e => setNewContact(prev => ({ ...prev, language: e.target.value }))}>
                     <option value="es">Español</option>
                     <option value="en">English</option>
-                    <option value="fr">Français</option>
-                    <option value="de">Deutsch</option>
-                    <option value="it">Italiano</option>
-                    <option value="pt">Português</option>
+                    <option value="ca">Català</option>
                   </select>
                 </div>
                 <div className="form-field flex-1">

@@ -1,10 +1,33 @@
 import dotenv from 'dotenv';
+import net from 'node:net';
 import { Pool } from 'pg';
 import request from 'supertest';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { createApp } from '../../src/app';
 
 dotenv.config();
+
+/** Prueba si el primer servidor LDAP configurado responde en el puerto TCP */
+async function isLdapReachable(): Promise<boolean> {
+  try {
+    const servers = JSON.parse(process.env.LDAP_SERVERS || '[]') as Array<{ url: string }>;
+    if (!servers.length) return false;
+    const url = new URL(servers[0].url);
+    const host = url.hostname;
+    const port = Number(url.port) || 389;
+    return await new Promise<boolean>((resolve) => {
+      const socket = net.createConnection({ host, port });
+      socket.setTimeout(2000);
+      socket.on('connect', () => { socket.destroy(); resolve(true); });
+      socket.on('error', () => resolve(false));
+      socket.on('timeout', () => { socket.destroy(); resolve(false); });
+    });
+  } catch {
+    return false;
+  }
+}
+
+const LDAP_CONFIGURED = !!process.env.LDAP_SETTING_1_USERNAME;
 
 /**
  * Integration Test: LDAP User Sync
@@ -27,11 +50,15 @@ const LDAP_TEST_USER = {
   expectedRole: process.env.LDAP_SETTING_1_EXPECTED_ROLE
 };
 
-describe('LDAP User Sync - Integration Test', () => {
+describe.skipIf(!LDAP_CONFIGURED)('LDAP User Sync - Integration Test', () => {
   let app: any;
   let pool: Pool;
+  let ldapReachable = false;
 
   beforeAll(async () => {
+    ldapReachable = await isLdapReachable();
+    if (!ldapReachable) return;
+
     // Setup database connection
     pool = new Pool({
       host: process.env.PG_HOST || 'localhost',
@@ -47,10 +74,11 @@ describe('LDAP User Sync - Integration Test', () => {
   });
 
   afterAll(async () => {
-    await pool.end();
+    await pool?.end();
   });
 
-  beforeEach(async () => {
+  beforeEach(async (ctx) => {
+    if (!ldapReachable) return ctx.skip();
     // Clean up test user before each test
     await pool.query('DELETE FROM auth.users WHERE username = $1', [LDAP_TEST_USER.username]);
   });
@@ -76,10 +104,10 @@ describe('LDAP User Sync - Integration Test', () => {
     expect(response.status).toBe(200);
     const cookies = response.headers['set-cookie'] as string[] | undefined;
     const accessToken = cookies
-      ?.map(c => c.match(/^accessToken=([^;]+)/)?.[1])
+      ?.map(c => /^accessToken=([^;]+)/.exec(c)?.[1])
       .find(Boolean) ?? '';
     const refreshToken = cookies
-      ?.map(c => c.match(/^refreshToken=([^;]+)/)?.[1])
+      ?.map(c => /^refreshToken=([^;]+)/.exec(c)?.[1])
       .find(Boolean);
     expect(accessToken).toBeTruthy();
     expect(refreshToken).toBeTruthy();

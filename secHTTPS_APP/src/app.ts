@@ -35,18 +35,18 @@ export async function createApp(usePostgres: boolean = false): Promise<AppContex
   const app = express();
   
   // CORS para permitir llamadas desde el frontend
-  const allowedOrigins = [
+  const allowedOrigins = new Set([
     process.env.CLIENT_URL || 'http://localhost:5173',
     'http://localhost:5173',
     'http://localhost:5174'
-  ];
+  ]);
   
   app.use(cors({
     origin: (origin, callback) => {
       // Permitir peticiones sin origin (como Postman, curl, etc)
       if (!origin) return callback(null, true);
       
-      if (allowedOrigins.includes(origin)) {
+      if (allowedOrigins.has(origin)) {
         callback(null, true);
       } else {
         callback(new Error('Not allowed by CORS'));

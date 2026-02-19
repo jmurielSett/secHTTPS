@@ -8,6 +8,9 @@ import { INotificationRepository } from '../../repositories/INotificationReposit
 import { CertificateExpirationService } from '../../services/CertificateExpirationService';
 import { IEmailService } from '../../services/IEmailService';
 import { EmailTemplate, ILocalizationService, SupportedLanguage } from '../../services/ILocalizationService';
+import { CertificateDateRange } from '../../valueObjects/CertificateDateRange';
+import { EmailAddress } from '../../valueObjects/EmailAddress';
+import { LanguageCode } from '../../valueObjects/LanguageCode';
 
 export class CreateCertificateUseCase {
   constructor(
@@ -76,28 +79,16 @@ export class CreateCertificateUseCase {
         'La lista de contactos responsables debe contener al menos un contacto válido'
       );
     }
-    
-    // Validar que cada contacto tenga email y language
+
+    // Validar formato de email e idioma usando Value Objects
     for (const contact of contacts) {
-      if (!contact.email || !contact.language) {
-        throw new ValidationError(
-          ErrorCode.INVALID_EMAIL_LIST,
-          'Cada contacto debe tener email y language'
-        );
-      }
+      EmailAddress.create(contact.email);
+      LanguageCode.create(contact.language);
     }
   }
 
   private validateDates(startDate: string, expirationDate: string): void {
-    const start = new Date(startDate);
-    const expiration = new Date(expirationDate);
-    
-    if (expiration <= start) {
-      throw new ValidationError(
-        ErrorCode.INVALID_DATE_RANGE,
-        'La fecha de expiración debe ser posterior a la fecha de inicio'
-      );
-    }
+    CertificateDateRange.create(startDate, expirationDate);
   }
 
   /**

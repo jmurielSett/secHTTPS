@@ -3,6 +3,7 @@ import { ICertificateRepository } from '../../../domain/repositories/ICertificat
 import { INotificationRepository } from '../../../domain/repositories/INotificationRepository';
 import { CreateNotificationUseCase } from '../../../domain/usecases/notifications/CreateNotificationUseCase';
 import { GetNotificationsUseCase } from '../../../domain/usecases/notifications/GetNotificationsUseCase';
+import { authMiddleware } from '../../middleware/authMiddleware';
 import { NotificationController } from '../controllers/NotificationController';
 
 export function createNotificationRouter(
@@ -24,9 +25,9 @@ export function createNotificationRouter(
     getNotificationsUseCase
   );
   
-  // Register routes
-  router.get('/', (req, res) => notificationController.getNotifications(req, res));
-  router.post('/', (req, res) => notificationController.createNotification(req, res));
+  // Register routes — all protected by JWT
+  router.get('/', authMiddleware, (req, res) => notificationController.getNotifications(req, res));
+  router.post('/', authMiddleware, (req, res) => notificationController.createNotification(req, res));
   
   return router;
 }

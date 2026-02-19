@@ -90,6 +90,33 @@
   animation: shake 0.4s ease-out;
 }
 
+/* Bloqueo de cuenta por exceso de intentos ──────────────────────────────── */
+.lockout-warning {
+  background: #fff3cd;
+  border: 1px solid #ffc107;
+  color: #856404;
+  padding: 12px 20px;
+  border-radius: 8px;
+  margin-bottom: 20px;
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  font-size: 0.9rem;
+  font-weight: 500;
+  animation: slideDown 0.3s ease-out;
+}
+
+.lockout-icon {
+  font-size: 1.5rem;
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.lockout-title {
+  font-weight: 700;
+  margin-bottom: 4px;
+}
+
 @keyframes shake {
   0%, 100% { transform: translateX(0); }
   25% { transform: translateX(-10px); }

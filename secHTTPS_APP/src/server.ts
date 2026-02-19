@@ -13,8 +13,7 @@ const USE_POSTGRES = process.env.USE_POSTGRES === 'true';
 const ENABLE_SCHEDULER = process.env.ENABLE_SCHEDULER !== 'false'; // Habilitado por defecto
 const CRON_EXPRESSION = process.env.CRON_EXPRESSION || '0 8 * * *'; // 8:00 AM por defecto
 
-void (async () => {
-  try {
+try {
     // Create app with configured repositories (handles DB connection internally)
     const { app, repositories } = await createApp(USE_POSTGRES);
 
@@ -72,8 +71,7 @@ void (async () => {
     } else {
       logInfo('ℹ️ Notification scheduler is disabled (ENABLE_SCHEDULER=false)');
     }
-  } catch (error) {
-    logError('Failed to start server:', error instanceof Error ? error : undefined);
-    process.exit(1);
-  }
-})();
+} catch (error) {
+  logError('Failed to start server:', error instanceof Error ? error : undefined);
+  process.exit(1);
+}

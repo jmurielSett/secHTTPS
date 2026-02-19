@@ -37,7 +37,7 @@ graph LR
         end
         SCHED[Scheduler\nnode-cron]
         EMAIL[Email Service\nNodemailer]
-        LOC[Localization Service\nES/EN/FR/DE]
+        LOC[Localization Service\nES/EN/CA]
     end
 
     subgraph Persistencia["Persistencia"]
@@ -75,14 +75,25 @@ graph LR
 | Capa | Responsabilidad |
 |------|-----------------|
 | `domain/usecases/` | Lógica de negocio pura (independiente de infraestructura) |
-| `domain/services/` | Servicios de dominio (cálculo de expiración, interfaces de email/localización) |
-| `domain/repositories/` | Interfaces de persistencia (contratos) |
+| `domain/services/` | Servicios de dominio (cálculo de expiración, interfaces de email/localización) || `domain/valueObjects/` | Value Objects de dominio (`EmailAddress`, `LanguageCode`, `CertificateDateRange`) || `domain/repositories/` | Interfaces de persistencia (contratos) |
 | `infrastructure/persistence/` | Implementaciones: `InMemory*` y `Postgres*` |
 | `infrastructure/trpc/` | Router tRPC + JWT middleware para cliente React |
 | `infrastructure/transport/` | Endpoints REST para integración entre servicios |
 | `infrastructure/scheduling/` | Scheduler node-cron |
 | `infrastructure/messaging/` | Implementación Nodemailer |
 | `client/src/` | SPA React con TanStack Query + tRPC |
+
+### Value Objects
+
+Los Value Objects encapsulan reglas de negocio como invariantes de construcción. Solo pueden crearse a través de su método `create()`, que lanza `ValidationError` si los datos no son válidos. Una vez construidos, su estado es inmutable.
+
+| Value Object | Invariante | Error code |
+|---|---|---|
+| `EmailAddress` | Formato RFC válido (`user@domain.ext`), normalizado a minúsculas | `INVALID_EMAIL_FORMAT` |
+| `LanguageCode` | Pertenece a `SupportedLanguage` (`es`, `en`, `fr`, `de`) | `INVALID_LANGUAGE_CODE` |
+| `CertificateDateRange` | `expirationDate` estrictamente posterior a `startDate` y ambas fechas parseables | `INVALID_DATE_RANGE` |
+
+Se usan internamente en los use cases (`CreateCertificateUseCase`, `UpdateCertificateUseCase`) para validar los datos de entrada. Los DTOs siguen siendo `string` / `string[]` — los Value Objects no se exponen en la capa de transporte.
 
 ---
 
@@ -184,6 +195,37 @@ El acceso está delegado en `auth_APP`. Los tokens JWT contienen el rol del usua
 | `editor` | crear, leer, actualizar | — |
 | `viewer` | leer | — |
 
+### Seguridad del Login (cliente)
+
+El componente `Login` implementa dos mecanismos de protección en el lado cliente:
+
+#### 1. Bloqueo por exceso de intentos fallidos
+
+| Parámetro | Valor |
+|---|---|
+| Intentos antes del bloqueo | 10 |
+| Duración del bloqueo | 3 minutos |
+
+- Cada respuesta `!ok` de `auth_APP` incrementa el contador de intentos.
+- Al alcanzar el límite se calcula `lockoutUntil = Date.now() + 3 min` y se persiste en `localStorage` para sobrevivir recargas de página.
+- Mientras el bloqueo está activo, el formulario se deshabilita y el botón muestra una cuenta atrás en tiempo real (`🔒 Bloqueado (2:47)`).
+- Al expirar el bloqueo se borran los datos de `localStorage` y el formulario vuelve a estar disponible.
+- Los mensajes de error son genéricos (*"Acceso incorrecto"*) — no revelan si el usuario existe ni si la contraseña es incorrecta (principio OWASP).
+
+#### 2. Reintentos ante fallo de conexión
+
+- Si el `fetch` a `auth_APP` lanza un error de red (`TypeError` / `Failed to fetch`), se muestra el modal `ServerErrorModal`.
+- El modal ofrece hasta **3 reintentos** automáticos con feedback visual (spinner + "Intento N de 3").
+- Si los 3 intentos fallan, el modal pasa a modo de error final con instrucción de contactar al responsable.
+- Una vez que la conexión se recupera, el modal se cierra automáticamente y el flujo de login continúa con normalidad.
+
+```
+retryCount=0 → ⚠️  Servidor Inaccesible  → botón [🔄 Reintentar]
+retryCount=1 → ⏳  Conectando...         → spinner (intento 2 de 3)
+retryCount=1 → ⚠️  Servidor Inaccesible  → botón [🔄 Reintentar]  (si falla)
+retryCount=3 → 🚫  Conexión Fallida      → botón [🚪 Salir]  (rojo)
+```
+
 ---
 
 ## API
@@ -201,6 +243,14 @@ El acceso está delegado en `auth_APP`. Los tokens JWT contienen el rol del usua
 | `notification.list` | query | Listar notificaciones con filtros |
 
 ### REST (integración servicios — `/api`)
+
+La API REST se mantiene de forma **intencionada** junto a tRPC por las siguientes razones:
+
+- **Interoperabilidad:** permite que herramientas externas (scripts `curl`, Postman, pipelines CI/CD, otros microservicios) consuman la API sin depender de la librería tRPC ni del cliente React.
+- **Separación de capas de transporte:** el cliente React usa tRPC con type-safety end-to-end; los consumidores externos usan REST con autenticación Bearer estándar. Cada capa sirve a su audiencia.
+- **Agnóstica al cliente:** cualquier sistema capaz de hacer peticiones HTTP puede integrarse sin acoplamiento a la implementación interna.
+
+Ambas capas comparten los mismos use cases del dominio y están protegidas con `authMiddleware` (JWT Bearer).
 
 | Método | Endpoint | Descripción |
 |--------|----------|-------------|
@@ -306,13 +356,14 @@ npm run docker:down      # Parar contenedores
 ## Tests
 
 ```
-Test Files  12 passed (12)
-     Tests  101 passed (101)
+Test Files  15 passed (15)
+     Tests  137 passed (137)
 ```
 
 | Tipo | Archivos | Tests | Descripción |
 |------|----------|-------|-------------|
-| Unit | 8 | 51 | Use cases de certificados y notificaciones |
+| Unit (value objects) | 3 | 36 | `EmailAddress`, `LanguageCode`, `CertificateDateRange` |
+| Unit (use cases) | 8 | 51 | Use cases de certificados y notificaciones |
 | Unit (servicio) | 1 | 9 | `CertificateExpirationService` |
 | Unit (use case complejo) | 1 | 8 | `SendCertificateNotificationsUseCase` |
 | Integration | 2 | 33 | REST API de certificados y notificaciones |
@@ -324,6 +375,10 @@ Test Files  12 passed (12)
 tests/
 ├── unit/
 │   ├── domain/
+│   │   ├── valueObjects/
+│   │   │   ├── EmailAddress.test.ts
+│   │   │   ├── LanguageCode.test.ts
+│   │   │   └── CertificateDateRange.test.ts
 │   │   └── usecases/
 │   │       ├── certificates/
 │   │       │   ├── CreateCertificateUseCase.test.ts
@@ -367,3 +422,9 @@ Los certificados nunca se eliminan físicamente — solo cambian a `status: DELE
 
 ### Expiración calculada en tiempo real
 `CertificateExpirationService.calculateExpirationStatus()` recalcula el estado usando `new Date()` en cada llamada. Al crear o actualizar un certificado, el estado se almacena en BD para facilitar los filtros de búsqueda.
+
+### Value Objects para invariantes de dominio
+Las reglas de validación que pertenecen al dominio (`EmailAddress`, `LanguageCode`, `CertificateDateRange`) se encapsulan en Value Objects en lugar de en métodos privados de los use cases. Esto garantiza que la lógica de validación sea reutilizable, testeable de forma aislada e imposible de eludir: si un Value Object se construye con éxito, la invariante está cumplida. Los DTOs de la capa de transporte siguen usando tipos primitivos (`string`) para simplicidad de serialización.
+
+### Bloqueo de login y reintentos en cliente
+La lógica de protección contra fuerza bruta y fallos de conexión vive íntegramente en el cliente (`Login.tsx`), independiente del servidor. Esto evita que el servidor tenga que gestionar estado de sesión de intentos y cumple con las recomendaciones OWASP de no revelar información interna. El bloqueo se persiste en `localStorage` para sobrevivir recargas, y el contador de reintentos de red es independiente del contador de intentos de autenticación: un fallo de red no penaliza el contador de bloqueo.
