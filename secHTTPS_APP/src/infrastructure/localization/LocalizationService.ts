@@ -1,10 +1,10 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import {
-    EmailTemplate,
-    ILocalizationService,
-    LocalizedEmailContent,
-    SupportedLanguage
+  EmailTemplate,
+  ILocalizationService,
+  LocalizedEmailContent,
+  SupportedLanguage
 } from '../../domain/services/ILocalizationService';
 import { Certificate } from '../../types/certificate';
 
@@ -61,7 +61,7 @@ export class LocalizationService implements ILocalizationService {
    * Carga todos los templates JSON al inicializar
    */
   private loadTemplates(): void {
-    const templatesDir = path.join(import.meta.dirname, 'templates');
+    const templatesDir = path.join(__dirname, 'templates');
     const languages = Object.values(SupportedLanguage);
     const templateTypes = Object.values(EmailTemplate);
 

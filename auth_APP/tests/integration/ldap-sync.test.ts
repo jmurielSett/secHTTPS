@@ -102,7 +102,7 @@ describe.skipIf(!LDAP_CONFIGURED)('LDAP User Sync - Integration Test', () => {
 
     // Should return 200 with tokens in cookies
     expect(response.status).toBe(200);
-    const cookies = response.headers['set-cookie'] as string[] | undefined;
+    const cookies = response.headers['set-cookie'] as unknown as string[] | undefined;
     const accessToken = cookies
       ?.map(c => /^accessToken=([^;]+)/.exec(c)?.[1])
       .find(Boolean) ?? '';

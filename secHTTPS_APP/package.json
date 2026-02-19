@@ -12,7 +12,6 @@
   },
   "license": "ISC",
   "author": "jmuriel",
-  "type": "module",
   "main": "dist/server.js",
   "scripts": {
     "dev": "concurrently \"npm run dev:server\" \"npm run dev:client\"",

@@ -102,7 +102,8 @@ cd secHTTPS
 ---
 
 ## 5. Levantar PostgreSQL
-
+(copiar el docker-compose.yml al server primero: 
+scp docker-compose.yml usuario@ip_del_servidor:/opt/secHTTPS/)
 ```bash
 cd /opt/secHTTPS
 docker compose up -d
@@ -130,7 +131,7 @@ sudo mkdir -p /etc/nginx/ssl
 sudo openssl req -x509 -nodes -days 3650 -newkey rsa:4096 \
   -keyout /etc/nginx/ssl/sechttps.key \
   -out    /etc/nginx/ssl/sechttps.crt \
-  -subj   "/C=ES/ST=Estado/L=Ciudad/O=secHTTPS/CN=<IP_O_DOMINIO>"
+  -subj   "/C=ES/ST=Barcelona/L=Sant Boi del Llobregat/O=secHTTPS/CN=scpdsigsam59.pssjd.local"
 
 sudo chmod 600 /etc/nginx/ssl/sechttps.key
 ```
@@ -145,6 +146,8 @@ sudo chmod 600 /etc/nginx/ssl/sechttps.key
 ### 7.1 Crear la configuración del sitio
 
 ```bash
+apt install -y nano
+
 sudo nano /etc/nginx/sites-available/sechttps
 ```
 
@@ -278,6 +281,11 @@ ADMIN_EMAIL=admin@tudominio.com
 ADMIN_PASSWORD=<password_segura>
 ```
 
+o copiar el .env para ese entorno (desde powershell)
+```bash
+docker cp /c/Desarrollos/MASTER_IA/.env_miDocker_auth_StBoi sechttps-prod-test:/opt/secHTTPS/auth_APP/.env
+```
+
 ### 8.2 Instalar dependencias, migrar y compilar
 
 ```bash
@@ -337,6 +345,10 @@ SMTP_HOST=smtp.tudominio.com
 SMTP_PORT=587
 SMTP_USER=notificaciones@tudominio.com
 SMTP_PASSWORD=<password_smtp>
+```
+o copiar el .env para ese entorno (desde powershell)
+```bash
+docker cp /c/Desarrollos/MASTER_IA/.env_miDocker_secHTTPS_StBoi sechttps-prod-test:/opt/secHTTPS/secHTTPS_APP/.env
 ```
 
 > **Importante:** `VITE_AUTH_APP_URL` y `VITE_BACKEND_URL` apuntan ambas a `https://<IP>:8059` porque nginx enruta `/auth/*` → auth_APP y `/api/*` + `/trpc/*` → secHTTPS_APP. El navegador solo necesita conocer un único punto de entrada.
@@ -423,6 +435,7 @@ OpenSSH                    ALLOW       Anywhere
 ---
 
 ## 12. Verificación final
+(desde powershell)
 docker compose ps
 # → secHTTPS-postgres  Up (healthy)
 
@@ -431,8 +444,11 @@ pm2 list
 # auth_APP        online
 # secHTTPS_server online
 
-# 3. nginx
+# 3. nginx (desde win solo nginx)
 sudo systemctl status nginx
+comprobar el estado:
+ps aux | grep nginx
+# debe mostrar: nginx: master process y nginx: worker process
 
 # 4. Sin token → 401 (confirma que la protección funciona)
 curl -sk -o /dev/null -w "%{http_code}" https://<IP_O_DOMINIO>:8059/api/certif
