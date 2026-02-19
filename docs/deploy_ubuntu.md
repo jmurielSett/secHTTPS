@@ -1,38 +1,36 @@
-# Instalación y despliegue en Ubuntu 22.04 LTS
+# Instalación y despliegue en Ubuntu 24.04 LTS (Producción)
 
-Guía paso a paso para poner en marcha el monorepo **secHTTPS** (auth_APP + secHTTPS_APP) en un servidor Ubuntu 22.04 desde cero.
+Guía paso a paso para poner en marcha el monorepo **secHTTPS** (auth_APP + secHTTPS_APP) en un servidor Ubuntu 24.04 desde cero, con **nginx como reverse proxy HTTPS en el puerto 8059**.
+
+```
+Internet
+    │
+    ▼  Puerto 8059 (HTTPS)
+  nginx
+    ├── /auth/*  ──► auth_APP      (localhost:4000, interno)
+    ├── /trpc/*  ──► secHTTPS_APP  (localhost:3000, interno)
+    ├── /api/*   ──► secHTTPS_APP  (localhost:3000, interno)
+    └── /*       ──► React SPA     (archivos estáticos compilados)
+```
+
+Solo los puertos **22** (SSH) y **8059** (HTTPS) quedan expuestos al exterior.
 
 ---
 
 ## 1. Requisitos previos del sistema
 
 ```bash
-# Actualizar paquetes del sistema
 sudo apt update && sudo apt upgrade -y
 
-# Herramientas básicas
-sudo apt install -y curl wget git build-essential ca-certificates gnupg
+# Herramientas básicas + nginx + openssl (git incluido)
+sudo apt install -y curl wget git build-essential ca-certificates gnupg nginx openssl
 ```
+
+> Para configurar identidad git (opcional en servidor): `git config --global user.name "Tu Nombre"`
 
 ---
 
-## 2. Instalar Git
-
-```bash
-sudo apt install -y git
-
-# Verificar instalación
-git --version
-# git version 2.34.x
-
-# Configurar identidad (para commits desde el servidor, opcional)
-git config --global user.name  "Tu Nombre"
-git config --global user.email "tu@email.com"
-```
-
----
-
-## 3. Instalar Node.js 20 LTS (vía nvm — recomendado)
+## 2. Instalar Node.js 24 (vía nvm)
 
 `nvm` permite gestionar múltiples versiones de Node sin conflictos con el sistema.
 
@@ -46,21 +44,21 @@ source ~/.bashrc
 # Verificar nvm
 nvm --version
 
-# Instalar Node.js 20 LTS
-nvm install 20
-nvm use 20
-nvm alias default 20
+# Instalar Node.js 24
+nvm install 24
+nvm use 24
+nvm alias default 24
 
 # Verificar
-node --version   # v20.x.x
-npm  --version   # 10.x.x
+node --version   # v24.13.0
+npm  --version   # 11.9.0
 ```
 
 ---
 
-## 4. Instalar Docker y Docker Compose
+## 3. Instalar Docker y Docker Compose
 
-### 4.1 Docker Engine
+### 3.1 Docker Engine
 
 ```bash
 # Añadir clave GPG oficial de Docker
@@ -81,11 +79,11 @@ sudo apt update
 sudo apt install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
 
 # Verificar
-docker --version          # Docker version 26.x.x
-docker compose version    # Docker Compose version v2.x.x
+docker --version          # Docker version 29.2.0
+docker compose version    # Docker Compose version v5.0.2
 ```
 
-### 4.2 Ejecutar Docker sin sudo (recomendado)
+### 3.2 Ejecutar Docker sin sudo (recomendado)
 
 ```bash
 sudo usermod -aG docker $USER
@@ -95,7 +93,7 @@ sudo usermod -aG docker $USER
 docker ps
 ```
 
-### 4.3 Arrancar Docker automáticamente al inicio
+### 3.3 Arrancar Docker automáticamente al inicio
 
 ```bash
 sudo systemctl enable docker
@@ -104,79 +102,186 @@ sudo systemctl start docker
 
 ---
 
-## 5. Clonar el repositorio
+## 4. Clonar el repositorio
 
 ```bash
-# Elegir directorio de trabajo
-cd /opt   # o ~/proyectos, o donde prefieras
-
-# Clonar
+cd /opt
 git clone <URL_DEL_REPO> secHTTPS
 cd secHTTPS
-
-# Estructura esperada:
-# secHTTPS/
-# ├── auth_APP/
-# ├── secHTTPS_APP/
-# ├── docker-compose.yml
-# └── ...
 ```
 
 ---
 
-## 6. Levantar PostgreSQL
-
-El `docker-compose.yml` en la raíz levanta el contenedor de PostgreSQL compartido por ambas apps.
+## 5. Levantar PostgreSQL
 
 ```bash
-# Desde la raíz del monorepo
 cd /opt/secHTTPS
-
 docker compose up -d
 
-# Verificar que está corriendo y healthy
+# Verificar
 docker compose ps
 # secHTTPS-postgres   Up (healthy)
 
-# Ver logs si hay problemas
+# Logs si hay problemas
 docker compose logs postgres
 ```
 
-> **Puertos expuestos:** `5432` — asegúrate de que no esté bloqueado por el firewall del servidor.
+> El puerto `5432` es **interno** — no se abre en el firewall.
 
 ---
 
-## 7. Configurar auth_APP
+## 6. Certificado SSL
 
-### 7.1 Variables de entorno
+Como el puerto `8059` no es estándar, se genera un certificado **autofirmado**.  
+(Si tienes dominio público, ver apéndice Let's Encrypt al final.)
+
+```bash
+sudo mkdir -p /etc/nginx/ssl
+
+sudo openssl req -x509 -nodes -days 3650 -newkey rsa:4096 \
+  -keyout /etc/nginx/ssl/sechttps.key \
+  -out    /etc/nginx/ssl/sechttps.crt \
+  -subj   "/C=ES/ST=Estado/L=Ciudad/O=secHTTPS/CN=<IP_O_DOMINIO>"
+
+sudo chmod 600 /etc/nginx/ssl/sechttps.key
+```
+
+> Reemplaza `<IP_O_DOMINIO>` por la IP del servidor o el dominio.  
+> Certificado válido 10 años. Los navegadores mostrarán aviso al ser autofirmado; acepta la excepción manualmente.
+
+---
+
+## 7. Configurar nginx
+
+### 7.1 Crear la configuración del sitio
+
+```bash
+sudo nano /etc/nginx/sites-available/sechttps
+```
+
+Contenido completo:
+
+```nginx
+server {
+    listen 8059 ssl;
+    listen [::]:8059 ssl;
+
+    server_name <IP_O_DOMINIO>;
+
+    ssl_certificate     /etc/nginx/ssl/sechttps.crt;
+    ssl_certificate_key /etc/nginx/ssl/sechttps.key;
+
+    ssl_protocols       TLSv1.2 TLSv1.3;
+    ssl_ciphers         HIGH:!aNULL:!MD5;
+    ssl_session_cache   shared:SSL:10m;
+    ssl_session_timeout 10m;
+
+    # Cabeceras de seguridad
+    add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
+    add_header X-Content-Type-Options    nosniff always;
+    add_header X-Frame-Options           SAMEORIGIN always;
+
+    # ── auth_APP ─────────────────────────────────────────────
+    location /auth/ {
+        proxy_pass         http://127.0.0.1:4000/auth/;
+        proxy_http_version 1.1;
+        proxy_set_header   Host              $host;
+        proxy_set_header   X-Real-IP         $remote_addr;
+        proxy_set_header   X-Forwarded-For   $proxy_add_x_forwarded_for;
+        proxy_set_header   X-Forwarded-Proto $scheme;
+    }
+
+    # ── secHTTPS_APP — tRPC ──────────────────────────────────
+    location /trpc/ {
+        proxy_pass         http://127.0.0.1:3000/trpc/;
+        proxy_http_version 1.1;
+        proxy_set_header   Upgrade           $http_upgrade;
+        proxy_set_header   Connection        "upgrade";
+        proxy_set_header   Host              $host;
+        proxy_set_header   X-Real-IP         $remote_addr;
+        proxy_set_header   X-Forwarded-For   $proxy_add_x_forwarded_for;
+        proxy_set_header   X-Forwarded-Proto $scheme;
+    }
+
+    # ── secHTTPS_APP — REST API ──────────────────────────────
+    location /api/ {
+        proxy_pass         http://127.0.0.1:3000/api/;
+        proxy_http_version 1.1;
+        proxy_set_header   Host              $host;
+        proxy_set_header   X-Real-IP         $remote_addr;
+        proxy_set_header   X-Forwarded-For   $proxy_add_x_forwarded_for;
+        proxy_set_header   X-Forwarded-Proto $scheme;
+    }
+
+    # ── React SPA (archivos estáticos) ───────────────────────
+    root /opt/secHTTPS/secHTTPS_APP/client/dist;
+    index index.html;
+
+    location / {
+        try_files $uri $uri/ /index.html;
+    }
+
+    # Caché de assets compilados
+    location ~* \.(js|css|png|jpg|jpeg|gif|ico|svg|woff2?)$ {
+        expires 1y;
+        add_header Cache-Control "public, immutable";
+    }
+}
+```
+
+### 7.2 Activar y verificar
+
+```bash
+# Activar sitio
+sudo ln -sf /etc/nginx/sites-available/sechttps /etc/nginx/sites-enabled/sechttps
+
+# Desactivar sitio por defecto
+sudo rm -f /etc/nginx/sites-enabled/default
+
+# Verificar sintaxis
+sudo nginx -t
+# nginx: configuration file /etc/nginx/nginx.conf test is successful
+
+# Aplicar y activar inicio automático
+sudo systemctl reload nginx
+sudo systemctl enable nginx
+```
+
+---
+
+## 8. Configurar auth_APP (producción)
+
+### 8.1 Variables de entorno
 
 ```bash
 cd /opt/secHTTPS/auth_APP
-
 cp .env.example .env
-nano .env   # o vim / vi
+nano .env
 ```
 
-Valores **críticos** a ajustar:
-
 ```dotenv
-# Credenciales del superusuario de PostgreSQL (del docker-compose.yml)
+# PostgreSQL — superusuario (del docker-compose.yml)
 PG_ADMIN_USER=adminjmuriel
 PG_ADMIN_PASSWORD=<el_configurado_en_docker>
 PG_ADMIN_DB=postgresTEMP
 
-# Credenciales de la app (se crean con las migraciones)
+# PostgreSQL — app
 PG_HOST=localhost
 PG_PORT=5432
 PG_USER=auth
-PG_PASSWORD=<elige_una_password_segura>
+PG_PASSWORD=<password_segura>
 PG_DATABASE=auth_db
 
 USE_POSTGRES=true
+PORT=4000
+NODE_ENV=production
 
 # JWT — mínimo 32 caracteres, DEBEN coincidir con secHTTPS_APP
 JWT_ACCESS_SECRET=<cadena_aleatoria_min_32_caracteres>
 JWT_REFRESH_SECRET=<cadena_aleatoria_min_32_caracteres>
+
+# CORS — URL pública de la app (nginx)
+CLIENT_URL=https://<IP_O_DOMINIO>:8059
 
 # Usuario admin inicial
 ADMIN_USERNAME=admin
@@ -184,191 +289,225 @@ ADMIN_EMAIL=admin@tudominio.com
 ADMIN_PASSWORD=<password_segura>
 ```
 
-### 7.2 Instalar dependencias y migrar
+### 8.2 Instalar dependencias, migrar y compilar
 
 ```bash
 cd /opt/secHTTPS/auth_APP
-
 npm install
-
-# Crear base de datos, tablas, roles, usuario admin
 npm run db:migrate
-```
-
-### 7.3 Probar el arranque
-
-```bash
-npm run dev
-# Debe mostrar: 🚀 Auth Service listening on http://localhost:4000
-# Ctrl+C para parar (luego usaremos PM2 en producción)
+npm run build
 ```
 
 ---
 
-## 8. Configurar secHTTPS_APP
+## 9. Configurar secHTTPS_APP (producción)
 
-### 8.1 Variables de entorno
+### 9.1 Variables de entorno
 
 ```bash
 cd /opt/secHTTPS/secHTTPS_APP
-
 cp .env.example .env
 nano .env
 ```
 
-Valores **críticos** a ajustar:
-
 ```dotenv
-# Credenciales del superusuario de PostgreSQL
+# PostgreSQL — superusuario
 PG_ADMIN_USER=adminjmuriel
 PG_ADMIN_PASSWORD=<el_configurado_en_docker>
 PG_ADMIN_DB=postgresTEMP
 
-# Credenciales de la app
+# PostgreSQL — app
 PG_HOST=localhost
 PG_PORT=5432
 PG_USER=sechttps
-PG_PASSWORD=<elige_una_password_segura>
+PG_PASSWORD=<password_segura>
 PG_DATABASE=sechttps_db
 
 PORT=3000
 USE_POSTGRES=true
+NODE_ENV=production
 
-# CORS — URL donde se sirve el frontend
-CLIENT_URL=http://<IP_O_DOMINIO_DEL_SERVIDOR>:5173
+# CORS — URL pública (nginx)
+CLIENT_URL=https://<IP_O_DOMINIO>:8059
 
 # JWT — DEBEN ser idénticos a los de auth_APP
 JWT_ACCESS_SECRET=<misma_cadena_que_en_auth_APP>
 JWT_REFRESH_SECRET=<misma_cadena_que_en_auth_APP>
 
-# URLs de los servicios (ajustar con IP/dominio real si no es localhost)
+# URL interna entre servicios (no pasa por nginx)
 AUTH_APP_URL=http://localhost:4000
-VITE_AUTH_APP_URL=http://<IP_O_DOMINIO>:4000
-VITE_BACKEND_URL=http://<IP_O_DOMINIO>:3000
+
+# Variables del cliente React (se compilan en el build — usar URL pública con nginx)
+# Ambas apuntan a nginx:8059 porque nginx enruta /auth/* y /api/* a cada servicio
+VITE_AUTH_APP_URL=https://<IP_O_DOMINIO>:8059
+VITE_BACKEND_URL=https://<IP_O_DOMINIO>:8059
 VITE_APPLICATION_NAME=secHTTPS_APP
 
-# SMTP (notificaciones por email)
+# SMTP
 SMTP_HOST=smtp.tudominio.com
 SMTP_PORT=587
 SMTP_USER=notificaciones@tudominio.com
 SMTP_PASSWORD=<password_smtp>
 ```
 
-> **Importante:** `VITE_*` son variables compiladas en el cliente. Si el servidor tiene IP pública o dominio, usar esa dirección (no `localhost`) para que el navegador del usuario pueda conectar.
+> **Importante:** `VITE_AUTH_APP_URL` y `VITE_BACKEND_URL` apuntan ambas a `https://<IP>:8059` porque nginx enruta `/auth/*` → auth_APP y `/api/*` + `/trpc/*` → secHTTPS_APP. El navegador solo necesita conocer un único punto de entrada.
 
-### 8.2 Instalar dependencias y migrar
+### 9.2 Instalar dependencias, migrar y compilar
 
 ```bash
 cd /opt/secHTTPS/secHTTPS_APP
-
 npm install
-
-# Crear base de datos sechttps_db y tablas
 npm run db:migrate
+
+# Compilar backend TypeScript → dist/
+npm run build
+
+# Compilar frontend React → client/dist/  (REQUIERE que .env esté configurado)
+npm run build:client
 ```
 
-### 8.3 Probar el arranque
-
-```bash
-npm run dev
-# Servidor en http://localhost:3000
-# Cliente en  http://localhost:5173
-# Ctrl+C para parar
-```
+> nginx servirá los archivos estáticos de `client/dist/` directamente. No se levanta servidor Vite en producción.
 
 ---
 
-## 9. Ejecución en producción con PM2
+## 10. Ejecución en producción con PM2
 
-En producción se recomienda compilar TypeScript y usar PM2 como gestor de procesos.
-
-### 9.1 Instalar PM2
+### 10.1 Instalar PM2
 
 ```bash
 npm install -g pm2
 ```
 
-### 9.2 Build y arranque de auth_APP
+### 10.2 Arrancar ambas apps
 
 ```bash
+# auth_APP (ya compilada en el paso 8.2)
 cd /opt/secHTTPS/auth_APP
-npm run build
 pm2 start dist/server.js --name auth_APP
-```
 
-### 9.3 Build y arranque de secHTTPS_APP (servidor)
-
-```bash
+# secHTTPS_APP (ya compilada en el paso 9.2)
 cd /opt/secHTTPS/secHTTPS_APP
-npm run build          # compila TypeScript del servidor
-
-# Si también sirves el cliente desde el mismo servidor:
-npm run build:client   # compila React con Vite
-
 pm2 start dist/server.js --name secHTTPS_server
 ```
 
-### 9.4 Guardar y activar inicio automático
+### 10.3 Activar inicio automático con el sistema
 
 ```bash
 pm2 save
-pm2 startup            # sigue las instrucciones que muestre el comando
+pm2 startup
+# El comando muestra una línea que debes ejecutar con sudo, por ejemplo:
+# sudo env PATH=$PATH:/home/user/.nvm/versions/node/v24.13.0/bin pm2 startup systemd -u user --hp /home/user
 ```
 
-### 9.5 Comandos útiles de PM2
+### 10.4 Comandos útiles de PM2
 
 ```bash
-pm2 list               # ver estado de todos los procesos
-pm2 logs auth_APP      # logs en tiempo real
-pm2 restart auth_APP   # reiniciar
+pm2 list                   # estado de todos los procesos
+pm2 logs auth_APP          # logs en tiempo real
+pm2 logs secHTTPS_server
+pm2 restart auth_APP
 pm2 stop secHTTPS_server
 ```
 
 ---
 
-## 10. Firewall (ufw)
+## 11. Firewall (ufw)
 
-Si el servidor tiene ufw activo, abrir los puertos necesarios:
+Solo dos puertos expuestos. Los servicios internos (3000, 4000, 5432) no se abren:
 
 ```bash
-sudo ufw allow OpenSSH
-sudo ufw allow 4000   # auth_APP
-sudo ufw allow 3000   # secHTTPS_APP (API)
-sudo ufw allow 5173   # secHTTPS_APP (cliente Vite dev)
-# sudo ufw allow 80   # si sirves con nginx en producción
+sudo ufw allow OpenSSH   # puerto 22
+sudo ufw allow 8059      # nginx HTTPS — único punto de entrada
 sudo ufw enable
 sudo ufw status
 ```
 
+```
+To                         Action      From
+--                         ------      ----
+OpenSSH                    ALLOW       Anywhere
+8059                       ALLOW       Anywhere
+```
+
+> Los puertos `3000` (secHTTPS_APP), `4000` (auth_APP) y `5432` (PostgreSQL) son internos y **no deben abrirse**.
+
 ---
 
-## 11. Verificación final
-
-```bash
-# PostgreSQL responde
+## 12. Verificación final
 docker compose ps
 # → secHTTPS-postgres  Up (healthy)
 
-# auth_APP responde
-curl http://localhost:4000/health
-# → {"status":"ok"} (o similar)
+# 2. PM2
+pm2 list
+# auth_APP        online
+# secHTTPS_server online
 
-# secHTTPS_APP responde
-curl http://localhost:3000/api/certif
+# 3. nginx
+sudo systemctl status nginx
+
+# 4. Sin token → 401 (confirma que la protección funciona)
+curl -sk -o /dev/null -w "%{http_code}" https://<IP_O_DOMINIO>:8059/api/certif
+# → 401
+
+# 5. Login y comprobación con token
+TOKEN=$(curl -sk -X POST https://<IP_O_DOMINIO>:8059/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"username":"admin","password":"<ADMIN_PASSWORD>"}' \
+  | grep -o '"accessToken":"[^"]*"' | cut -d'"' -f4)
+
+curl -sk -H "Authorization: Bearer $TOKEN" https://<IP_O_DOMINIO>:8059/api/certif
 # → [] (array vacío — sin certificados aún)
+
+# 6. Frontend accesible
+curl -sk -o /dev/null -w "%{http_code}" https://<IP_O_DOMINIO>:8059/
+# → 200
 ```
 
 ---
 
-## Resumen de comandos en orden
+## 13. Actualizar la aplicación (deploys futuros)
 
 ```bash
-# 1. PostgreSQL
-cd /opt/secHTTPS && docker compose up -d
+cd /opt/secHTTPS
+git pull
 
-# 2. auth_APP
-cd auth_APP  && npm install && npm run db:migrate && npm run dev
+# Si cambió auth_APP:
+cd auth_APP && npm install && npm run build && pm2 restart auth_APP
 
-# 3. secHTTPS_APP (en otra terminal)
-cd ../secHTTPS_APP && npm install && npm run db:migrate && npm run dev
+# Si cambió el backend de secHTTPS_APP:
+cd ../secHTTPS_APP && npm install && npm run build && pm2 restart secHTTPS_server
+
+# Si cambió el frontend (client/):
+cd secHTTPS_APP && npm run build:client
+# nginx recoge los nuevos estáticos automáticamente (sin reiniciar)
+```
+
+---
+
+## Apéndice: Let's Encrypt (si tienes dominio)
+
+Si el servidor tiene un dominio público y puedes abrir el puerto 80 temporalmente:
+
+```bash
+sudo apt install -y certbot python3-certbot-nginx
+
+# Abrir puerto 80 temporalmente
+sudo ufw allow 80
+
+# Obtener certificado
+sudo certbot --nginx -d tudominio.com
+
+# Cerrar puerto 80
+sudo ufw delete allow 80
+```
+
+Edita `/etc/nginx/sites-available/sechttps` y reemplaza `ssl_certificate` / `ssl_certificate_key` por:
+```nginx
+ssl_certificate     /etc/letsencrypt/live/tudominio.com/fullchain.pem;
+ssl_certificate_key /etc/letsencrypt/live/tudominio.com/privkey.pem;
+```
+
+La renovación automática la gestiona el timer instalado por certbot:
+```bash
+sudo systemctl status certbot.timer
 ```
