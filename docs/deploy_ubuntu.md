@@ -2,17 +2,6 @@
 
 Guía paso a paso para poner en marcha el monorepo **secHTTPS** (auth_APP + secHTTPS_APP) en un servidor Ubuntu 24.04 desde cero, con **nginx como reverse proxy HTTPS en el puerto 8059**.
 
-```
-Internet
-    │
-    ▼  Puerto 8059 (HTTPS)
-  nginx
-    ├── /auth/*  ──► auth_APP      (localhost:4000, interno)
-    ├── /trpc/*  ──► secHTTPS_APP  (localhost:3000, interno)
-    ├── /api/*   ──► secHTTPS_APP  (localhost:3000, interno)
-    └── /*       ──► React SPA     (archivos estáticos compilados)
-```
-
 Solo los puertos **22** (SSH) y **8059** (HTTPS) quedan expuestos al exterior.
 
 ---

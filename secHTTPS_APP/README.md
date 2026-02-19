@@ -37,7 +37,7 @@ graph LR
         end
         SCHED[Scheduler\nnode-cron]
         EMAIL[Email Service\nNodemailer]
-        LOC[Localization Service\nES/EN/FR/DE]
+        LOC[Localization Service\nES/EN/CA]
     end
 
     subgraph Persistencia["Persistencia"]
@@ -243,6 +243,14 @@ retryCount=3 → 🚫  Conexión Fallida      → botón [🚪 Salir]  (rojo)
 | `notification.list` | query | Listar notificaciones con filtros |
 
 ### REST (integración servicios — `/api`)
+
+La API REST se mantiene de forma **intencionada** junto a tRPC por las siguientes razones:
+
+- **Interoperabilidad:** permite que herramientas externas (scripts `curl`, Postman, pipelines CI/CD, otros microservicios) consuman la API sin depender de la librería tRPC ni del cliente React.
+- **Separación de capas de transporte:** el cliente React usa tRPC con type-safety end-to-end; los consumidores externos usan REST con autenticación Bearer estándar. Cada capa sirve a su audiencia.
+- **Agnóstica al cliente:** cualquier sistema capaz de hacer peticiones HTTP puede integrarse sin acoplamiento a la implementación interna.
+
+Ambas capas comparten los mismos use cases del dominio y están protegidas con `authMiddleware` (JWT Bearer).
 
 | Método | Endpoint | Descripción |
 |--------|----------|-------------|
