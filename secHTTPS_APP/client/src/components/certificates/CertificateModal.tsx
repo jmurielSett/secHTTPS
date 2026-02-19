@@ -42,7 +42,7 @@ const getLanguageFlag = (languageCode: string): string => {
   const languageToFlag: Record<string, string> = {
     'es': '🇪🇸',
     'en': '🇬🇧',
-    'fr': '🇫🇷',
+    'ca': '🇨🇦',
   };
   return languageToFlag[languageCode.toLowerCase()] || '🌐';
 };
@@ -51,7 +51,7 @@ const getLanguageName = (languageCode: string): string => {
   const languageNames: Record<string, string> = {
     'es': 'Español',
     'en': 'English',
-    'fr': 'Français',
+    'ca': 'Català',
   };
   return languageNames[languageCode.toLowerCase()] || languageCode.toUpperCase();
 };

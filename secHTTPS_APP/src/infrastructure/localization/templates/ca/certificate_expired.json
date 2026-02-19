@@ -1,0 +1,20 @@
+{
+  "subject": "🔴 URGENT: El certificat {{fileName}} ha EXPIRAT",
+  "greeting": "El vostre certificat SSL/TLS ha EXPIRAT",
+  "description": "El certificat següent ja ha expirat. Els serveis que en depenen poden estar fora de servei:",
+  "statusText": "EXPIRAT",
+  "labels": {
+    "fileName": "Nom del fitxer",
+    "server": "Servidor",
+    "client": "Client",
+    "expirationDate": "Data d'expiració",
+    "filePath": "Ruta del fitxer",
+    "configPath": "Ruta de configuració"
+  },
+  "action": {
+    "title": "⚠️ ACCIÓ URGENT REQUERIDA",
+    "message": "Aquest certificat ja ha expirat. Els serveis que en depenen poden estar fora de servei. Renoveu i instal·leu el certificat immediatament."
+  },
+  "footer": "Aquest és un missatge automàtic del Sistema de Monitoratge de Certificats SSL/TLS",
+  "systemName": "SecHTTPS Monitor"
+}

@@ -1,0 +1,20 @@
+{
+  "subject": "⚠️ Alerta: El certificat {{fileName}} està a punt d'expirar",
+  "greeting": "El vostre certificat SSL/TLS està a punt d'expirar",
+  "description": "El certificat següent expirarà aviat. Renoveu-lo abans de la data d'expiració per evitar interrupcions del servei:",
+  "daysUntilExpiration": "Expira en {{days}} dia(es)",
+  "labels": {
+    "fileName": "Nom del fitxer",
+    "server": "Servidor",
+    "client": "Client",
+    "expirationDate": "Data d'expiració",
+    "filePath": "Ruta del fitxer",
+    "configPath": "Ruta de configuració"
+  },
+  "action": {
+    "title": "⚠️ Acció Requerida",
+    "message": "Procediu a renovar aquest certificat abans de la data d'expiració per evitar interrupcions del servei."
+  },
+  "footer": "Aquest és un missatge automàtic del Sistema de Monitoratge de Certificats SSL/TLS",
+  "systemName": "SecHTTPS Monitor"
+}
