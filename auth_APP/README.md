@@ -281,28 +281,28 @@ sequenceDiagram
 
     UC->>LDAP: authenticate(username, password)
     alt LDAP disponible y credenciales correctas
-        LDAP-->>UC: éxito (authProvider = ldap://...)
+        LDAP-->>UC: exito - authProvider=LDAP
     else LDAP no disponible o credenciales incorrectas
         LDAP-->>UC: fallo / timeout
         UC->>DBA: authenticate(username, password)
         DBA->>PG: SELECT user WHERE username = ?
         PG-->>DBA: usuario
         DBA->>DBA: bcrypt.compare(password, hash)
-        DBA-->>UC: éxito (authProvider = DATABASE)
+        DBA-->>UC: exito - authProvider=DATABASE
     end
 
-    UC->>PG: ¿Usuario existe?
+    UC->>PG: Usuario existe en BD?
     alt No existe + allowLdapSync = true
-        UC->>PG: INSERT user (sync LDAP)
+        UC->>PG: INSERT user - sync LDAP
         UC->>PG: Asignar ldapDefaultRole
     end
     UC->>PG: SELECT roles del usuario en applicationName
     PG-->>UC: roles[]
 
-    UC->>JWT: generateTokenPair({ userId, username, authProvider, roles })
-    JWT-->>UC: { accessToken, refreshToken }
+    UC->>JWT: generateTokenPair - userId, username, authProvider, roles
+    JWT-->>UC: accessToken + refreshToken
     UC-->>AC: tokens + userData
-    AC-->>FE: 200 OK + Set-Cookie: accessToken; refreshToken (httpOnly)
+    AC-->>FE: 200 OK + Set-Cookie accessToken y refreshToken httpOnly
 ```
 
 ### 4.2. Refresh de token
