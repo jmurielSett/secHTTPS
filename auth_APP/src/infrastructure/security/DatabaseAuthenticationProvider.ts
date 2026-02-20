@@ -1,7 +1,7 @@
 import { IUserRepository } from '../../domain/repositories/IUserRepository';
 import {
-    AuthenticationResult,
-    IAuthenticationProvider
+  AuthenticationResult,
+  IAuthenticationProvider
 } from '../../domain/services/IAuthenticationProvider';
 import { IPasswordHasher } from '../../domain/services/IPasswordHasher';
 import { AUTH_PROVIDER_DATABASE } from '../../domain/value-objects/AuthProvider';
@@ -31,6 +31,15 @@ export class DatabaseAuthenticationProvider implements IAuthenticationProvider {
       }
 
       // 2. Verify password
+      // dummy_hash = LDAP-synced user, cannot authenticate locally
+      if (user.passwordHash === 'dummy_hash') {
+        return {
+          success: false,
+          error: 'LDAP user - cannot authenticate locally',
+          isLdapOnlyUser: true
+        };
+      }
+
       const isPasswordValid = await this.passwordHasher.compare(password, user.passwordHash);
 
       if (!isPasswordValid) {

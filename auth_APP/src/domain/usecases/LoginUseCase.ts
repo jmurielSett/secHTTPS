@@ -72,6 +72,7 @@ export class LoginUseCase {
     authProviderValue: string;
   }> {
     let ldapConnectionFailed = false;
+    let anyCredentialFailure = false; // al menos un proveedor respondió pero rechazó las credenciales
 
     for (const provider of this.authProviders) {
       const isAvailable = await provider.isAvailable();
@@ -93,10 +94,16 @@ export class LoginUseCase {
 
       if (result.isConnectionError) {
         ldapConnectionFailed = true;
+      } else if (!result.isLdapOnlyUser) {
+        // isLdapOnlyUser = DB encontró al usuario pero es LDAP-only (dummy_hash).
+        // No cuenta como fallo de credenciales: el usuario real está en LDAP.
+        anyCredentialFailure = true;
       }
     }
 
-    if (ldapConnectionFailed) {
+    // Solo devolver error de LDAP si ningún proveedor pudo evaluar las credenciales
+    // (todos fallaron por conexión). Si DB respondió con credenciales incorrectas → 401.
+    if (ldapConnectionFailed && !anyCredentialFailure) {
       throw new Error('LDAP server not reachable. If you have a local account, contact your administrator.');
     }
 

@@ -4,16 +4,17 @@
 
 /**
  * Configuración de JWT tokens
- * NOTA: Tiempos reducidos para DESARROLLO/TESTING
  * Producción: ACCESS_EXPIRATION='15m', REFRESH_EXPIRATION='7d'
  */
 export const JWT_CONFIG = {
-  /** Duración del Access Token: 1 minuto (testing) */
-  ACCESS_EXPIRATION: '1m',
-  /** Duración del Refresh Token: 5 minutos (testing) */
-  REFRESH_EXPIRATION: '5m',
+  /** Duración del Access Token: 15 minutos */
+  ACCESS_EXPIRATION: '15m',
+  /** Duración del Refresh Token: 7 días */
+  REFRESH_EXPIRATION: '7d',
   /** Duración en segundos del Access Token (usado para cache TTL) */
-  ACCESS_EXPIRATION_SECONDS: 1 * 60 // 60 segundos = 1 minuto
+  ACCESS_EXPIRATION_SECONDS: 15 * 60, // 900 segundos = 15 minutos
+  /** Duración en segundos del Refresh Token (usado para cookie maxAge) */
+  REFRESH_EXPIRATION_SECONDS: 7 * 24 * 60 * 60 // 604800 segundos = 7 días
 } as const;
 
 /**
@@ -23,7 +24,7 @@ export const JWT_CONFIG = {
  * - Invalidación automática al modificar roles vía endpoints /admin/*
  */
 export const CACHE_CONFIG = {
-  /** TTL de la cache en segundos (15 minutos = duración del Access Token) */
+  /** TTL de la cache en segundos (igual al Access Token = 15 minutos) */
   TTL_SECONDS: JWT_CONFIG.ACCESS_EXPIRATION_SECONDS,
   /** Máximo número de entradas en cache (LRU eviction) */
   MAX_SIZE: 1000,

@@ -26,14 +26,14 @@ export class CertificateDateRange {
     const start = new Date(startDate);
     const expiration = new Date(expirationDate);
 
-    if (isNaN(start.getTime())) {
+    if (Number.isNaN(start.getTime())) {
       throw new ValidationError(
         ErrorCode.INVALID_DATE_RANGE,
         `Fecha de inicio inválida: "${startDate}"`
       );
     }
 
-    if (isNaN(expiration.getTime())) {
+    if (Number.isNaN(expiration.getTime())) {
       throw new ValidationError(
         ErrorCode.INVALID_DATE_RANGE,
         `Fecha de expiración inválida: "${expirationDate}"`

@@ -5,7 +5,7 @@ import { ErrorCode, ValidationError } from '../../../../src/types/errors';
 
 /**
  * Tests para el Value Object LanguageCode.
- * Verifica el invariante: todo LanguageCode creado con éxito pertenece a SupportedLanguage.
+ * Verifica el invariante: cualquier LanguageCode creado con éxito pertenece a SupportedLanguage.
  */
 describe('LanguageCode', () => {
   // ─── creación válida ─────────────────────────────────────────────────────

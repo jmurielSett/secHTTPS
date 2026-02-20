@@ -4,7 +4,7 @@ import { ErrorCode, ValidationError } from '../../../../src/types/errors';
 
 /**
  * Tests para el Value Object EmailAddress.
- * Verifica el invariante: todo EmailAddress creado con éxito tiene formato válido.
+ * Verifica el invariante: cualquier EmailAddress creado con éxito tiene formato válido.
  */
 describe('EmailAddress', () => {
   // ─── creación válida ─────────────────────────────────────────────────────

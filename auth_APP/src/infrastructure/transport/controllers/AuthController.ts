@@ -1,11 +1,12 @@
 import { NextFunction, Request, Response } from 'express';
 import {
-    LoginUseCase,
-    RefreshTokenUseCase,
-    RegisterUserUseCase,
-    ValidateTokenUseCase
+  LoginUseCase,
+  RefreshTokenUseCase,
+  RegisterUserUseCase,
+  ValidateTokenUseCase
 } from '../../../domain/usecases';
 import { Password, Token, Username } from '../../../domain/value-objects';
+import { JWT_CONFIG } from '../../../types/shared';
 
 export class AuthController {
   constructor(
@@ -65,7 +66,7 @@ export class AuthController {
         httpOnly: true,
         secure: process.env.NODE_ENV === 'production', // HTTPS only in production
         sameSite: 'strict',
-        maxAge: 60 * 1000, // 1 minute (matching JWT_CONFIG.ACCESS_EXPIRATION)
+        maxAge: JWT_CONFIG.ACCESS_EXPIRATION_SECONDS * 1000,
         path: '/'
       });
 
@@ -73,7 +74,7 @@ export class AuthController {
         httpOnly: true,
         secure: process.env.NODE_ENV === 'production',
         sameSite: 'strict',
-        maxAge: 5 * 60 * 1000, // 5 minutes (matching JWT_CONFIG.REFRESH_EXPIRATION)
+        maxAge: JWT_CONFIG.REFRESH_EXPIRATION_SECONDS * 1000,
         path: '/'
       });
 

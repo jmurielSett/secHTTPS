@@ -10,6 +10,7 @@ export interface AuthenticationResult {
   error?: string;
   providerDetails?: string; // e.g., 'ldap://192.168.1.8:389' for LDAP, 'DATABASE' for database
   isConnectionError?: boolean; // true when server is unreachable (timeout, network error)
+  isLdapOnlyUser?: boolean; // true when user exists in DB with dummy_hash (LDAP-synced, cannot auth locally)
 }
 
 export interface IAuthenticationProvider {
