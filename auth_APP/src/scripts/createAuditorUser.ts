@@ -23,7 +23,7 @@ interface UserConfig {
 async function createUser(config: UserConfig): Promise<void> {
   const pool = new Pool({
     host: process.env.PG_HOST || 'localhost',
-    port: parseInt(process.env.PG_PORT || '5432', 10),
+    port: Number.parseInt(process.env.PG_PORT || '5432', 10),
     user: process.env.PG_USER || 'auth',
     password: process.env.PG_PASSWORD,
     database: process.env.PG_DATABASE || 'auth_db',
@@ -51,7 +51,7 @@ async function createUser(config: UserConfig): Promise<void> {
     const passwordHash = await passwordHasher.hash(config.password);
 
     const userResult = await pool.query(
-      'INSERT INTO users (username, email, password_hash) VALUES ($1, $2, $3) RETURNING id',
+      "INSERT INTO users (username, email, password_hash, auth_provider) VALUES ($1, $2, $3, 'DATABASE') RETURNING id",
       [config.username, config.email, passwordHash]
     );
 

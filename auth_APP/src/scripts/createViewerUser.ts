@@ -25,7 +25,7 @@ async function createViewerUser(config: ViewerUserConfig): Promise<void> {
   // Database connection configuration
   const pool = new Pool({
     host: process.env.PG_HOST || 'localhost',
-    port: parseInt(process.env.PG_PORT || '5432', 10),
+    port: Number.parseInt(process.env.PG_PORT || '5432', 10),
     user: process.env.PG_USER || 'auth',
     password: process.env.PG_PASSWORD,
     database: process.env.PG_DATABASE || 'auth_db',
@@ -63,7 +63,7 @@ async function createViewerUser(config: ViewerUserConfig): Promise<void> {
     // Create user
     console.log(`👤 Creating user '${config.username}'...`);
     const userResult = await pool.query(
-      'INSERT INTO users (username, email, password_hash) VALUES ($1, $2, $3) RETURNING id, username',
+      "INSERT INTO users (username, email, password_hash, auth_provider) VALUES ($1, $2, $3, 'DATABASE') RETURNING id, username",
       [config.username, config.email, passwordHash]
     );
 

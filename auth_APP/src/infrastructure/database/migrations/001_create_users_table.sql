@@ -41,12 +41,14 @@ CREATE TABLE IF NOT EXISTS users (
   username VARCHAR(50) NOT NULL UNIQUE,
   email VARCHAR(255) NOT NULL UNIQUE,
   password_hash VARCHAR(255) NOT NULL,
+  auth_provider VARCHAR(100) DEFAULT NULL,
   is_active BOOLEAN DEFAULT TRUE,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
 COMMENT ON TABLE users IS 'System users - roles assigned through user_application_roles';
 COMMENT ON COLUMN users.password_hash IS 'Bcrypt hashed password (10 rounds)';
+COMMENT ON COLUMN users.auth_provider IS 'Authentication provider: DATABASE for local users, LDAP URL for LDAP-synced users';
 
 -- Roles specific to each application
 CREATE TABLE IF NOT EXISTS roles (

@@ -1,6 +1,6 @@
 import {
-  AuthenticationResult,
-  IAuthenticationProvider
+    AuthenticationResult,
+    IAuthenticationProvider
 } from '../../domain/services/IAuthenticationProvider';
 import { ldapLog, logError, logWarn } from '../../utils/logger';
 
@@ -153,11 +153,15 @@ export class LDAPAuthenticationProvider implements IAuthenticationProvider {
           if (bindErr) {
             ldapLog(`[${this.name}]   ❌ Bind failed: ${bindErr.message}`);
             client.unbind();
-            const isTimeout = /timeout|ETIMEDOUT|ECONNREFUSED|ENOTFOUND/i.test(bindErr.message);
+            // Only LDAP error code 49 (InvalidCredentials) means valid connection + wrong password.
+            // Every other error (timeout, ECONNRESET, socket hang up, refused, etc.) is infrastructure.
+            const isCredentialError = bindErr.name === 'InvalidCredentialsError' ||
+              bindErr.code === 49 ||
+              /invalid credentials|AcceptSecurityContext/i.test(bindErr.message);
             resolve({
               success: false,
               error: `LDAP bind failed: ${bindErr.message}`,
-              isConnectionError: isTimeout
+              isConnectionError: !isCredentialError
             });
             return;
           }
@@ -312,12 +316,19 @@ export class LDAPAuthenticationProvider implements IAuthenticationProvider {
 
     ldapLog(`[${this.name}]   🔗 Binding user (will try ${bindTargets.length} format(s)): ${bindTargets.join(' | ')}`);
 
+    let anyUserConnectionError = false;
+
     const tryBind = (index: number): void => {
       if (index >= bindTargets.length) {
         userClient.unbind();
         searchClient.unbind();
         ldapLog(`[${this.name}]   ❌ User authentication failed with all bind formats`);
-        resolve({ success: false, error: 'Invalid LDAP credentials' });
+        // If all failures were connection errors (not wrong password), propagate as infrastructure error
+        resolve({
+          success: false,
+          error: 'Invalid LDAP credentials',
+          isConnectionError: anyUserConnectionError
+        });
         return;
       }
 
@@ -327,6 +338,20 @@ export class LDAPAuthenticationProvider implements IAuthenticationProvider {
       userClient.bind(bindTarget, userPassword, (authErr: any) => {
         if (authErr) {
           ldapLog(`[${this.name}]   ⚠️  Bind failed with format ${index + 1}: ${authErr.message}`);
+          // Track whether this was a connection error vs a real credential failure (LDAP code 49)
+          const isCredentialError = authErr.name === 'InvalidCredentialsError' ||
+            authErr.code === 49 ||
+            /invalid credentials|AcceptSecurityContext/i.test(authErr.message);
+          if (isCredentialError) {
+            // Real wrong-password error: don't mark as connection error, stop trying other formats
+            anyUserConnectionError = false;
+            userClient.unbind();
+            searchClient.unbind();
+            ldapLog(`[${this.name}]   ❌ Invalid user credentials (code 49)`);
+            resolve({ success: false, error: 'Invalid LDAP credentials', isConnectionError: false });
+            return;
+          }
+          anyUserConnectionError = true;
           tryBind(index + 1);
           return;
         }

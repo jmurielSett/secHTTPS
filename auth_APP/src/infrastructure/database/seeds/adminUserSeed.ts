@@ -15,6 +15,11 @@ export async function seedAdminUser(pool: Pool): Promise<void> {
   }
   
   try {
+    // Ensure auth_provider column exists (idempotent for existing DBs pre-002 migration)
+    await pool.query(`
+      ALTER TABLE users ADD COLUMN IF NOT EXISTS auth_provider VARCHAR(100) DEFAULT NULL
+    `);
+
     // Check if admin user already exists
     const existingUser = await pool.query(
       'SELECT id FROM users WHERE username = $1',
@@ -22,6 +27,11 @@ export async function seedAdminUser(pool: Pool): Promise<void> {
     );
     
     if (existingUser.rows.length > 0) {
+      // Ensure auth_provider is set to DATABASE for existing admin (idempotent fix)
+      await pool.query(
+        "UPDATE users SET auth_provider = 'DATABASE' WHERE username = $1 AND (auth_provider IS NULL OR auth_provider = '')",
+        [username]
+      );
       logInfo(`✓ Admin user '${username}' already exists`);
       return;
     }
@@ -32,7 +42,7 @@ export async function seedAdminUser(pool: Pool): Promise<void> {
     
     // Create admin user
     const userResult = await pool.query(
-      'INSERT INTO users (username, email, password_hash) VALUES ($1, $2, $3) RETURNING id',
+      "INSERT INTO users (username, email, password_hash, auth_provider) VALUES ($1, $2, $3, 'DATABASE') RETURNING id",
       [username, email, passwordHash]
     );
     

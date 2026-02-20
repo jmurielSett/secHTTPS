@@ -26,13 +26,16 @@ export class DatabaseAuthenticationProvider implements IAuthenticationProvider {
       if (!user) {
         return {
           success: false,
-          error: 'User not found in database'
+          error: 'User not found in database',
+          isUserNotFoundInDb: true
         };
       }
 
       // 2. Verify password
-      // dummy_hash = LDAP-synced user, cannot authenticate locally
-      if (user.passwordHash === 'dummy_hash') {
+      // dummy_hash OR authProvider != DATABASE = LDAP-synced user, cannot authenticate locally
+      const isLdapUser = user.passwordHash === 'dummy_hash' ||
+        (user.authProvider != null && user.authProvider !== AUTH_PROVIDER_DATABASE);
+      if (isLdapUser) {
         return {
           success: false,
           error: 'LDAP user - cannot authenticate locally',
@@ -43,9 +46,12 @@ export class DatabaseAuthenticationProvider implements IAuthenticationProvider {
       const isPasswordValid = await this.passwordHasher.compare(password, user.passwordHash);
 
       if (!isPasswordValid) {
+        // Password comparison was performed: user exists with a real hash.
+        // This is a genuine credential failure regardless of auth_provider column value.
         return {
           success: false,
-          error: 'Invalid password'
+          error: 'Invalid password',
+          isDatabaseUser: true
         };
       }
 

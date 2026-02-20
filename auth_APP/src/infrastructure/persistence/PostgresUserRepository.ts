@@ -44,12 +44,12 @@ export class PostgresUserRepository implements IUserRepository {
 
   async create(user: User): Promise<User> {
     const query = `
-      INSERT INTO users (username, email, password_hash, created_at)
-      VALUES ($1, $2, $3, $4)
+      INSERT INTO users (username, email, password_hash, auth_provider, created_at)
+      VALUES ($1, $2, $3, $4, $5)
       RETURNING *
     `;
 
-    const values = [user.username, user.email, user.passwordHash, user.createdAt];
+    const values = [user.username, user.email, user.passwordHash, user.authProvider ?? null, user.createdAt];
 
     const result = await this.pool.query(query, values);
     return this.mapRowToUser(result.rows[0]);
@@ -148,6 +148,7 @@ export class PostgresUserRepository implements IUserRepository {
       username: row.username,
       email: row.email,
       passwordHash: row.password_hash,
+      authProvider: row.auth_provider ?? undefined,
       createdAt: row.created_at.toISOString()
     };
   }

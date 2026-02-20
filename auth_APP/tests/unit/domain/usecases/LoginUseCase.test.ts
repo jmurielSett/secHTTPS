@@ -1,6 +1,6 @@
 import { IApplicationRepository } from '@/domain/repositories/IApplicationRepository';
 import { IUserRepository } from '@/domain/repositories/IUserRepository';
-import { IPasswordHasher, ITokenService } from '@/domain/services';
+import { ITokenService } from '@/domain/services';
 import { IAuthenticationProvider } from '@/domain/services/IAuthenticationProvider';
 import { LoginUseCase } from '@/domain/usecases/LoginUseCase';
 import { User } from '@/types/user';
@@ -11,7 +11,6 @@ describe('LoginUseCase', () => {
   let mockUserRepository: IUserRepository;
   let mockApplicationRepository: IApplicationRepository;
   let mockTokenService: ITokenService;
-  let mockPasswordHasher: IPasswordHasher;
   let mockAuthProvider: IAuthenticationProvider;
 
   const existingUser: User = {
@@ -48,11 +47,6 @@ describe('LoginUseCase', () => {
       verifyRefreshToken: vi.fn()
     } as any;
 
-    mockPasswordHasher = {
-      hash: vi.fn(),
-      compare: vi.fn()
-    } as any;
-
     mockAuthProvider = {
       name: 'Database',
       authenticate: vi.fn(),
@@ -63,7 +57,6 @@ describe('LoginUseCase', () => {
       mockUserRepository,
       mockApplicationRepository,
       mockTokenService,
-      mockPasswordHasher,
       [mockAuthProvider]
     );
   });
@@ -188,7 +181,6 @@ describe('LoginUseCase', () => {
         mockUserRepository,
         mockApplicationRepository,
         mockTokenService,
-        mockPasswordHasher,
         [unavailableProvider, dbProvider]
       );
 
@@ -211,7 +203,6 @@ describe('LoginUseCase', () => {
         mockUserRepository,
         mockApplicationRepository,
         mockTokenService,
-        mockPasswordHasher,
         [] // no providers
       );
 

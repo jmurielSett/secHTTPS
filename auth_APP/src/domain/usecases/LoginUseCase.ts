@@ -3,7 +3,6 @@ import { IUserRepository } from '../../domain/repositories/IUserRepository';
 import { LoginDTO, LoginResponse } from '../../types/user';
 import { authLog, logWarn } from '../../utils/logger';
 import { AuthenticationResult, IAuthenticationProvider } from '../services/IAuthenticationProvider';
-import { IPasswordHasher } from '../services/IPasswordHasher';
 import { ITokenService } from '../services/ITokenService';
 import { AuthProvider } from '../value-objects/AuthProvider';
 import { AssignRoleUseCase } from './RoleManagementUseCases';
@@ -18,7 +17,6 @@ export class LoginUseCase {
     private readonly userRepository: IUserRepository,
     private readonly applicationRepository: IApplicationRepository | null,
     private readonly tokenService: ITokenService,
-    private readonly passwordHasher: IPasswordHasher,
     private readonly authProviders: IAuthenticationProvider[] = [],
     private readonly assignRoleUseCase?: AssignRoleUseCase
   ) {}
@@ -72,7 +70,7 @@ export class LoginUseCase {
     authProviderValue: string;
   }> {
     let ldapConnectionFailed = false;
-    let anyCredentialFailure = false; // al menos un proveedor respondió pero rechazó las credenciales
+    let anyCredentialFailure = false; // solo password incorrecto para usuario existente en BD local
 
     for (const provider of this.authProviders) {
       const isAvailable = await provider.isAvailable();
@@ -94,15 +92,14 @@ export class LoginUseCase {
 
       if (result.isConnectionError) {
         ldapConnectionFailed = true;
-      } else if (!result.isLdapOnlyUser) {
-        // isLdapOnlyUser = DB encontró al usuario pero es LDAP-only (dummy_hash).
-        // No cuenta como fallo de credenciales: el usuario real está en LDAP.
+      } else if (result.isDatabaseUser) {
+        // Fallo real: usuario local en BD (authProvider=DATABASE) con password incorrecto
         anyCredentialFailure = true;
       }
     }
 
-    // Solo devolver error de LDAP si ningún proveedor pudo evaluar las credenciales
-    // (todos fallaron por conexión). Si DB respondió con credenciales incorrectas → 401.
+    // Si LDAP cayó y no hubo fallo real de credenciales (password incorrecto),
+    // es imposible saber si el usuario existe → informar que LDAP no está disponible.
     if (ldapConnectionFailed && !anyCredentialFailure) {
       throw new Error('LDAP server not reachable. If you have a local account, contact your administrator.');
     }
@@ -282,11 +279,11 @@ export class LoginUseCase {
     const username = authResult.username!;
     const email = authResult.email || `${username}@ldap.local`;
     
-    // Create user with a dummy password (won't be used if LDAP is enabled)
+    // Create user with dummy_hash (LDAP users never authenticate locally)
     const newUser = await this.userRepository.create({
       username,
       email,
-      passwordHash: await this.passwordHasher.hash(`LDAP_USER_${Date.now()}`),
+      passwordHash: 'dummy_hash',
       authProvider: providerValue,
       createdAt: new Date().toISOString()
     } as any);

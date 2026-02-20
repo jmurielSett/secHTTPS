@@ -67,7 +67,6 @@ export function createAuthRouter(
     userRepository,
     applicationRepository,
     tokenService,
-    passwordHasher,
     authProviders,
     assignRoleUseCase
   );
