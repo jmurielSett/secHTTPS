@@ -20,7 +20,7 @@ export const JWT_CONFIG = {
 /**
  * Configuración de la cache en memoria
  * El TTL de la cache coincide con la duración del access token para mantener consistencia:
- * - Si el token es válido por 1 minuto, la cache de roles también debe serlo
+ * - Si el token es válido por 15 minutos, la cache de roles también debe serlo
  * - Invalidación automática al modificar roles vía endpoints /admin/*
  */
 export const CACHE_CONFIG = {

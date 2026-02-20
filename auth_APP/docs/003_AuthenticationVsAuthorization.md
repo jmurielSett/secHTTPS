@@ -156,17 +156,16 @@ router.delete('/certificates/:id',
 1. **Endpoints de lectura** → Solo ValidateTokenUseCase
 2. **Endpoints de escritura/críticos** → ValidateTokenUseCase + VerifyUserAccessUseCase
 3. **Tokens con TTL corto (15min)** → Menor riesgo de roles desactualizados
-4. **Cache del check de autorización** → Redis con TTL de 1-2 min para reducir hits a BD
+4. **Cache del check de autorización** → `MemoryCacheService` con TTL 15 min (coincide con el access token), invalidación automática al asignar/revocar roles vía `/admin/*`
 
 ```typescript
-// Ejemplo con cache
-const cacheKey = `user:${userId}:app:${appName}:roles`;
-let roles = await redis.get(cacheKey);
-
-if (!roles) {
-  roles = await userRepository.getUserRolesByApplication(userId, appName);
-  await redis.set(cacheKey, JSON.stringify(roles), 'EX', 120); // 2 min TTL
-}
-
-return roles.includes(requiredRole);
+// El sistema ya implementa esto en VerifyUserAccessUseCase:
+// - Cache hit: devuelve roles desde memoria (sin consultar BD)
+// - Cache miss: consulta BD, almacena con TTL de 900s (15 min)
+// - Invalidación automática al modificar roles vía /admin/roles/*
+const hasAccess = await verifyUserAccessUseCase.execute(
+  tokenData.userId,
+  appName,
+  requiredRole
+);
 ```

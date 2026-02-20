@@ -37,7 +37,7 @@ res.cookie('accessToken', token, {
   httpOnly: true,      // NO accesible desde JavaScript
   secure: true,        // Solo HTTPS en producción
   sameSite: 'strict',  // Previene CSRF
-  maxAge: 1 * 60 * 1000 // 1 minuto (testing)
+  maxAge: 15 * 60 * 1000 // 15 minutos
 });
 ```
 
@@ -74,10 +74,10 @@ Refresh Token (5 minutos para testing, 7 días en prod):
 │ JWT_ACCESS_SECRET=asdfA-dsf3-4f5g6h7j8k9l0qwertyuiopASDFG│
 │ JWT_REFRESH_SECRET=yjytD.sdf3-4f5asdfaseTR0qwertyuiopASDFG│
 │                                                          │
-│ Access Token:  1 minuto (testing - prod: 15 min)       │
-│ Refresh Token: 5 minutos (testing - prod: 7 días)      │
+│ Access Token:  15 minutos                               │
+│ Refresh Token: 7 días                                   │
 │                                                          │
-│ Cache: roles en memoria (1 min TTL, auto-invalidación)  │
+│ Cache: roles en memoria (15 min TTL, auto-invalidación) │
 └─────────────────────────────────────────────────────────┘
 ```
 
@@ -516,12 +516,12 @@ auth_APP verifica:
   ✓ Obtiene roles: ['viewer'] o ['admin']
   
 auth_APP genera:
-  - Access Token (1 min) con applicationName="secHTTPS_APP" y roles
-  - Refresh Token (5 min) con applicationName="secHTTPS_APP" y roles
+  - Access Token (15 min) con applicationName="secHTTPS_APP" y roles
+  - Refresh Token (7 días) con applicationName="secHTTPS_APP" y roles
 
 auth_APP responde:
-  Set-Cookie: accessToken=eyJhbGc...; HttpOnly; Secure; SameSite=Strict; MaxAge=60
-  Set-Cookie: refreshToken=eyJhbGc...; HttpOnly; Secure; SameSite=Strict; MaxAge=300
+  Set-Cookie: accessToken=eyJhbGc...; HttpOnly; Secure; SameSite=Strict; MaxAge=900
+  Set-Cookie: refreshToken=eyJhbGc...; HttpOnly; Secure; SameSite=Strict; MaxAge=604800
   Body: {
     accessToken: "eyJhbGc...",  ← (redundante, ya en cookie)
     refreshToken: "eyJhbGc...", ← (redundante, ya en cookie)
@@ -551,13 +551,13 @@ secHTTPS_APP responde:
 
 
 ┌──────────────────────────────────────────────────────────────┐
-│ 3. TOKEN EXPIRADO (después de 1 minuto)                     │
+│ 3. TOKEN EXPIRADO (después de 15 minutos)                    │
 └──────────────────────────────────────────────────────────────┘
 Frontend → GET /trpc/certificate.getCertificates?batch=1
            credentials: 'include'
 
 secHTTPS_APP valida:
-  ❌ Access token expirado (1 min pasado)
+  ❌ Access token expirado (15 min pasado)
   
 secHTTPS_APP responde:
   401 UNAUTHORIZED { error: "TOKEN_EXPIRED" }
@@ -572,7 +572,7 @@ Frontend → POST /auth/refresh
 auth_APP valida:
   ✓ Extrae refreshToken de cookie
   ✓ Verifica con JWT_REFRESH_SECRET
-  ✓ Refresh token válido (5 min)
+  ✓ Refresh token válido (7 días)
   ✓ Obtiene nuevos roles actualizados desde DB
 
 auth_APP genera:
@@ -591,7 +591,7 @@ Frontend:
 
 
 ┌──────────────────────────────────────────────────────────────┐
-│ 4. REFRESH TOKEN EXPIRADO (después de 5 minutos sin login) │
+│ 4. REFRESH TOKEN EXPIRADO (después de 7 días sin autenticar) │
 └──────────────────────────────────────────────────────────────┘
 Frontend → POST /auth/refresh
            credentials: 'include'
@@ -622,7 +622,7 @@ JWT_REFRESH_SECRET=yjytD.sdf3-4f5asdfaseTR0qwertyuiopASDFG
 PORT=4000
 ```
 
-### **secHTTPS_APP/.env** (NUEVO)
+### **secHTTPS_APP/.env**
 ```bash
 # JWT Configuration (DEBE coincidir con auth_APP)
 JWT_ACCESS_SECRET=asdfA-dsf3-4f5g6h7j8k9l0qwertyuiopASDFG
@@ -639,7 +639,7 @@ PORT=3000
 CLIENT_URL=http://localhost:5174
 ```
 
-### **client/.env** (NUEVO)
+### **client/.env**
 ```bash
 # Backend URLs
 VITE_AUTH_APP_URL=http://localhost:4000
@@ -660,18 +660,14 @@ VITE_APPLICATION_NAME=secHTTPS_APP
 
 ### 2. ¿Cómo se interactúa con Access/Refresh tokens?
 ```typescript
-// Access Token (1 min para testing):
+// Access Token (15 min):
 - Se envía automáticamente en CADA petición (cookie httpOnly)
 - Si expira → 401 error → Frontend llama /auth/refresh
 
-// Refresh Token (5 min para testing):
+// Refresh Token (7 días):
 - Solo se usa para renovar access token
 - Se envía automáticamente a /auth/refresh (cookie httpOnly)
 - Si expira → Usuario debe hacer login de nuevo
-
-// PARA PRODUCCIÓN: cambiar en auth_APP/src/types/shared.ts
-// ACCESS_EXPIRATION: '15m'
-// REFRESH_EXPIRATION: '7d'
 ```
 
 ### 3. ¿Cómo enviar applicationName desde backend?
@@ -710,19 +706,10 @@ const roles = await this.userRepository.getUserRolesByApplication(
 ---
 
 ## 🔒 Beneficios de esta Arquitectura
-(1 min testing) → Si lo roban, expira rápido
-- Refresh token más largo (5 min testing) → UX sin relogin frecuente
-- **PRODUCCIÓN**: 15 min access / 7 días refresh
+- Access token corto (15 min) → Si lo roban, expira rápido
+- Refresh token largo (7 días) → UX sin relogin frecuente
 - httpOnly cookies → Protección contra XSS
 - sameSite → Protección contra CSRF
-- Access token corto → Si lo roban, expira en 15 min
-- Refresh token largo → UX sin relogin frecuente
-
-✅ **Arquitectura**:
-- auth_APP centraliza min TTL = duración de access token en testing)
-- Auto-invalidación al modificar roles vía /admin/*
-- Reduce queries a PostgreSQL
-- **PRODUCCIÓN**: 15 min TTr_application_roles
 
 ✅ **Cache inteligente** (auth_APP):
 - Roles en memoria (15 min TTL = duración de access token)
@@ -736,12 +723,12 @@ const roles = await this.userRepository.getUserRolesByApplication(
 
 ---
 
-## 📝 Próximos Pasos
+## ✅ Estado de implementación
 
-1. **Actualizar .env** con JWT secretos y APPLICATION_NAME
-2. **Instalar cookie-parser** en secHTTPS_APP
-3. **Implementar authMiddleware** con validación de cookies
-4. **Actualizar tRPC context** para extraer usuario de cookie
-5. **Crear componente Login** con applicationName
-6. **Configurar tRPC client** con credentials y refresh automático
-7. **Probar flujo completo**: login → peticiones → refresh → logout
+Todo el flujo descrito en este documento está implementado y en producción:
+
+- `authMiddleware.ts` verifica JWT desde cookie httpOnly
+- `app.ts` extrae usuario del token para el contexto tRPC
+- `Login.tsx` envía `applicationName` y usa `credentials: 'include'`
+- `client/src/utils/trpc.ts` gestiona refresh automático en errores 401
+- `.env` configurados con `JWT_ACCESS_SECRET`, `JWT_REFRESH_SECRET`, `APPLICATION_NAME`

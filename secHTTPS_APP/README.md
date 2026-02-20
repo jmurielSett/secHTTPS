@@ -59,6 +59,42 @@ Usuario →  Login (auth_APP) → Accede a secHTTPS_APP
 | **Crear certificado** | Formulario con validación de dominio (Value Objects). El servidor envía email de confirmación al crear. |
 | **Notificaciones** | Historial de alertas enviadas por el scheduler. Solo lectura. |
 
+### Seguridad y resiliencia en el login
+
+El componente `Login.tsx` implementa dos mecanismos independientes de protección:
+
+**1. Bloqueo por intentos fallidos de credenciales (rate limiting frontend)**
+
+| Parámetro | Valor |
+|---|---|
+| Intentos permitidos | 10 |
+| Duración del bloqueo | 3 minutos |
+| Persistencia | `localStorage` — sobrevive recargas de página |
+| Contador | Se resetea en login exitoso |
+
+- Cada credencial incorrecta incrementa `loginAttempts`.
+- Al alcanzar 10, se activa un bloqueo con cuenta atrás en tiempo real (actualiza cada segundo).
+- El estado se persiste en `localStorage[loginLockout]` → si el usuario recarga la página durante el bloqueo, el tiempo restante se recupera y el formulario sigue bloqueado.
+- Los reintentos lanzados desde el **modal de error de servidor** (ver más abajo) **no incrementan** este contador — solo los intentos manuales del usuario cuentan.
+
+**2. Modal de error de servidor (resiliencia ante infraestructura no disponible)**
+
+Se distinguen dos causas de error de infraestructura, ambas muestran un modal con botón "Reintentar":
+
+| Causa | Código interno | Qué muestra |
+|---|---|---|
+| `auth_APP` o backend no responden (red caída, servidor apagado) | `CONNECTION_ERROR` / `Failed to fetch` | Modal genérico de conexión |
+| LDAP corporativo no disponible (auth_APP responde, pero LDAP falla) | `LDAP_UNAVAILABLE` | Modal con el mensaje de error específico de LDAP |
+
+- El modal lleva un contador de reintentos (`retryCount`).
+- Al pulsar "Reintentar", se vuelve a lanzar el login con las mismas credenciales.
+- Si el servidor vuelve a responder y las credenciales son incorrectas, el modal se cierra y se muestra el error de credenciales (contando como un único intento fallido).
+- Si el servidor responde y el login tiene éxito, todo se resetea.
+
+**3. Sesión expirada**
+
+Cuando el `accessToken` expira y el refresh también (o falla), el interceptor redirige al login con `?sessionExpired=true`. El componente detecta el parámetro, muestra un mensaje y pre-rellena el campo username con el último usuario de `localStorage`.
+
 ---
 
 ## 2. Control de acceso por rol (RBAC)
@@ -418,6 +454,72 @@ sequenceDiagram
     end
 ```
 
+### 5.5. Bloqueo de cuenta por intentos fallidos
+
+```mermaid
+sequenceDiagram
+    actor U as Usuario
+    participant FE as Login.tsx
+    participant LS as localStorage
+    participant AUTH as auth_APP :4000
+
+    U->>FE: Credenciales incorrectas (intento N)
+    FE->>AUTH: POST /auth/login
+    AUTH-->>FE: 401 Unauthorized
+    FE->>FE: loginAttempts++ (N de 10)
+    FE-->>U: "Acceso incorrecto"
+
+    Note over U,FE: Al llegar a 10 intentos fallidos:
+    U->>FE: Credenciales incorrectas (intento 10)
+    FE->>AUTH: POST /auth/login
+    AUTH-->>FE: 401 Unauthorized
+    FE->>LS: loginLockout = { until: now+3min, attempts: 10 }
+    FE-->>U: Formulario bloqueado + cuenta atrás 3:00
+
+    Note over U,FE: Si el usuario recarga la página:
+    FE->>LS: Lee loginLockout
+    LS-->>FE: until > now → sigue bloqueado
+    FE-->>U: Formulario bloqueado + tiempo restante
+
+    Note over U,FE: Tras expirar el bloqueo:
+    FE->>LS: Elimina loginLockout
+    FE-->>U: Formulario desbloqueado
+```
+
+### 5.6. Servidor de autenticación no disponible
+
+```mermaid
+sequenceDiagram
+    actor U as Usuario
+    participant FE as Login.tsx
+    participant AUTH as auth_APP :4000
+    participant LDAP as LDAP corporativo
+
+    U->>FE: Introduce credenciales
+    FE->>AUTH: POST /auth/login
+
+    alt Backend no responde (red caída)
+        AUTH--xFE: Error de red / timeout
+        FE-->>U: Modal "Servidor no disponible" + botón Reintentar
+        U->>FE: Pulsa Reintentar
+        FE->>AUTH: POST /auth/login (mismas credenciales)
+        AUTH-->>FE: 200 OK
+        FE-->>U: Login correcto — modal se cierra
+    else LDAP no disponible (auth_APP responde)
+        AUTH->>LDAP: Intento de autenticación
+        LDAP--xAUTH: Conexión rechazada
+        AUTH-->>FE: 503 LDAP_UNAVAILABLE + mensaje
+        FE-->>U: Modal con mensaje LDAP + botón Reintentar
+        Note over FE: retryCount++ pero loginAttempts NO cambia
+        U->>FE: Pulsa Reintentar
+        FE->>AUTH: POST /auth/login (mismas credenciales)
+        AUTH->>LDAP: Intento de autenticación
+        LDAP-->>AUTH: OK
+        AUTH-->>FE: 200 OK
+        FE-->>U: Login correcto — modal se cierra
+    end
+```
+
 ---
 
 ## 6. Sistema de migraciones
@@ -566,7 +668,7 @@ Especificación completa: [`docs/openapi.yaml`](docs/openapi.yaml)
 ### Prerrequisitos
 
 - Node.js 20+
-- PostgreSQL 15+ (opcional — hay modo InMemory para desarrollo y tests)
+- PostgreSQL 16+ (opcional — hay modo InMemory para desarrollo y tests)
 - `auth_APP` en ejecución y accesible (proporciona los tokens JWT)
 
 ### 9.1. Desarrollo local
@@ -736,7 +838,7 @@ Test Files  15 passed
 | Unit — Servicio | 9 | `CertificateExpirationService` (cálculo de estados) |
 | Unit — Use Case complejo | 8 | `SendCertificateNotificationsUseCase` (cooldowns, flujo cron) |
 | Integration | 33 | API REST completa de certificados y notificaciones |
-| E2E (Playwright) | — | Flujo completo en navegador (separado de Vitest) |
+| E2E (Playwright) | 6 | Login, listado, filtros, logout — flujo completo en navegador (separado de Vitest) |
 
 **Los tests de integración usan siempre InMemory** (sin PostgreSQL), garantizando ejecución
 rápida (~1 s) y sin dependencias externas. Ver [`docs/002_Testing.md`](docs/002_Testing.md).
