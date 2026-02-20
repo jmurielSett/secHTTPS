@@ -424,21 +424,21 @@
 }
 
 .btn-secondary {
-  background: transparent;
-  border: 1px solid rgba(0, 0, 0, 0.18);
-  color: #6b7280;
+  background: #e5e7eb;
+  border: 1px solid rgba(0, 0, 0, 0.25);
+  color: #374151;
   padding: 0.6rem 1.5rem;
   border-radius: 6px;
   cursor: pointer;
   font-size: 0.9rem;
-  font-weight: 400;
+  font-weight: 500;
   transition: all 0.2s;
 }
 
 .btn-secondary:hover {
-  background: rgba(0, 0, 0, 0.04);
-  border-color: rgba(0, 0, 0, 0.3);
-  color: #374151;
+  background: #d1d5db;
+  border-color: rgba(0, 0, 0, 0.35);
+  color: #111827;
 }
 
 .btn-danger {
