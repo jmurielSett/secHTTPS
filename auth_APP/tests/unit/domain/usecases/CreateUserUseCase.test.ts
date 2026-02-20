@@ -137,7 +137,7 @@ describe('CreateUserUseCase', () => {
 
     it('should throw error for invalid username (invalid characters)', async () => {
       const input = {
-        username: 'user@invalid',
+        username: 'user!invalid',
         email: 'valid@example.com',
         password: 'Password123'
       };

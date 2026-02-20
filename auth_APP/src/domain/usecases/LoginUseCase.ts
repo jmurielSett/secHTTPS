@@ -71,6 +71,8 @@ export class LoginUseCase {
     providerName: string;
     authProviderValue: string;
   }> {
+    let ldapConnectionFailed = false;
+
     for (const provider of this.authProviders) {
       const isAvailable = await provider.isAvailable();
       if (!isAvailable) continue;
@@ -88,6 +90,14 @@ export class LoginUseCase {
           authProviderValue
         };
       }
+
+      if (result.isConnectionError) {
+        ldapConnectionFailed = true;
+      }
+    }
+
+    if (ldapConnectionFailed) {
+      throw new Error('LDAP server not reachable. If you have a local account, contact your administrator.');
     }
 
     throw new Error('Invalid credentials');

@@ -95,15 +95,15 @@ sudo systemctl start docker
 
 ```bash
 cd /opt
-git clone <URL_DEL_REPO> secHTTPS
+git clone https://github.com/jmurielSett/secHTTPS.git secHTTPS
 cd secHTTPS
 ```
 
 ---
 
 ## 5. Levantar PostgreSQL
-(copiar el docker-compose.yml al server primero: 
-scp docker-compose.yml usuario@ip_del_servidor:/opt/secHTTPS/)
+(copiar el docker-compose.yml al server: 
+ docker-compose.yml el_servidor:/opt/secHTTPS/)
 ```bash
 cd /opt/secHTTPS
 docker compose up -d
@@ -135,8 +135,7 @@ sudo openssl req -x509 -nodes -days 3650 -newkey rsa:4096 \
 
 sudo chmod 600 /etc/nginx/ssl/sechttps.key
 ```
-
-> Reemplaza `<IP_O_DOMINIO>` por la IP del servidor o el dominio.  
+ 
 > Certificado válido 10 años. Los navegadores mostrarán aviso al ser autofirmado; acepta la excepción manualmente.
 
 ---
@@ -158,7 +157,7 @@ server {
     listen 8059 ssl;
     listen [::]:8059 ssl;
 
-    server_name <IP_O_DOMINIO>;
+    server_name scpdsigsam59.pssjd.local;
 
     ssl_certificate     /etc/nginx/ssl/sechttps.crt;
     ssl_certificate_key /etc/nginx/ssl/sechttps.key;
@@ -220,6 +219,8 @@ server {
     }
 }
 ```
+Ctrl + o
+Ctrl + x
 
 ### 7.2 Activar y verificar
 
@@ -281,7 +282,10 @@ ADMIN_EMAIL=admin@tudominio.com
 ADMIN_PASSWORD=<password_segura>
 ```
 
-o copiar el .env para ese entorno (desde powershell)
+o copiar el .env para ese entorno
+ mv /tmp/.env_auth_StBoi /opt/secHTTPS/auth_APP/.env
+
+NO...
 ```bash
 docker cp /c/Desarrollos/MASTER_IA/.env_miDocker_auth_StBoi sechttps-prod-test:/opt/secHTTPS/auth_APP/.env
 ```
@@ -346,7 +350,11 @@ SMTP_PORT=587
 SMTP_USER=notificaciones@tudominio.com
 SMTP_PASSWORD=<password_smtp>
 ```
-o copiar el .env para ese entorno (desde powershell)
+
+o copiar el .env para ese entorno
+ mv /tmp/.env_secHTTPS_StBoi /opt/secHTTPS/secHTTPS_APP/.env
+
+NO...
 ```bash
 docker cp /c/Desarrollos/MASTER_IA/.env_miDocker_secHTTPS_StBoi sechttps-prod-test:/opt/secHTTPS/secHTTPS_APP/.env
 ```
@@ -435,7 +443,6 @@ OpenSSH                    ALLOW       Anywhere
 ---
 
 ## 12. Verificación final
-(desde powershell)
 docker compose ps
 # → secHTTPS-postgres  Up (healthy)
 
@@ -451,20 +458,20 @@ ps aux | grep nginx
 # debe mostrar: nginx: master process y nginx: worker process
 
 # 4. Sin token → 401 (confirma que la protección funciona)
-curl -sk -o /dev/null -w "%{http_code}" https://<IP_O_DOMINIO>:8059/api/certif
+curl -sk -o /dev/null -w "%{http_code}" https://scpdsigsam59.pssjd.local:8059/api/certif
 # → 401
 
 # 5. Login y comprobación con token
-TOKEN=$(curl -sk -X POST https://<IP_O_DOMINIO>:8059/auth/login \
+TOKEN=$(curl -sk -X POST https://scpdsigsam59.pssjd.local:8059/auth/login \
   -H "Content-Type: application/json" \
-  -d '{"username":"admin","password":"<ADMIN_PASSWORD>"}' \
+  -d '{"username":"admin","password":"Admin123"}' \
   | grep -o '"accessToken":"[^"]*"' | cut -d'"' -f4)
 
-curl -sk -H "Authorization: Bearer $TOKEN" https://<IP_O_DOMINIO>:8059/api/certif
+curl -sk -H "Authorization: Bearer $TOKEN" https://scpdsigsam59.pssjd.local:8059/api/certif
 # → [] (array vacío — sin certificados aún)
 
 # 6. Frontend accesible
-curl -sk -o /dev/null -w "%{http_code}" https://<IP_O_DOMINIO>:8059/
+curl -sk -o /dev/null -w "%{http_code}" https://scpdsigsam59.pssjd.local:8059/
 # → 200
 ```
 
@@ -500,7 +507,7 @@ sudo apt install -y certbot python3-certbot-nginx
 sudo ufw allow 80
 
 # Obtener certificado
-sudo certbot --nginx -d tudominio.com
+sudo certbot --nginx -d scpdsigsam59.pssjd.local
 
 # Cerrar puerto 80
 sudo ufw delete allow 80
@@ -516,3 +523,10 @@ La renovación automática la gestiona el timer instalado por certbot:
 ```bash
 sudo systemctl status certbot.timer
 ```
+
+Reiniciar el nginx
+```bash
+sudo systemctl reload nginx
+```
+ssl_certificate     /etc/nginx/ssl/sechttps.crt;
+ssl_certificate_key /etc/nginx/ssl/sechttps.key;

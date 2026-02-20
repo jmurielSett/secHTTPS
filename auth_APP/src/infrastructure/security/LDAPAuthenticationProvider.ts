@@ -132,7 +132,8 @@ export class LDAPAuthenticationProvider implements IAuthenticationProvider {
         client.unbind();
         resolve({
           success: false,
-          error: `Connection failed: ${err.message}`
+          error: `Connection failed: ${err.message}`,
+          isConnectionError: true
         });
       });
 
@@ -146,9 +147,11 @@ export class LDAPAuthenticationProvider implements IAuthenticationProvider {
           if (bindErr) {
             ldapLog(`[${this.name}]   ❌ Bind failed: ${bindErr.message}`);
             client.unbind();
+            const isTimeout = /timeout|ETIMEDOUT|ECONNREFUSED|ENOTFOUND/i.test(bindErr.message);
             resolve({
               success: false,
-              error: `LDAP bind failed: ${bindErr.message}`
+              error: `LDAP bind failed: ${bindErr.message}`,
+              isConnectionError: isTimeout
             });
             return;
           }
