@@ -336,7 +336,7 @@
 .create-certificate-modal-content .contact-form-row {
   display: flex;
   gap: 0.75rem;
-  align-items: flex-end;
+  align-items: flex-start;
 }
 
 .create-certificate-modal-content .flex-1 {
