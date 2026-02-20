@@ -1,11 +1,18 @@
 openapi: 3.0.3
 info:
-  title: API de Gestión de Certificados SSL/TLS
+  title: API de Gestión de Certificados SSL/TLS — secHTTPS_APP
   description: |
-    API REST para gestionar el ciclo de vida de certificados SSL/TLS instalados en servidores web, 
+    API REST para gestionar el ciclo de vida de certificados SSL/TLS instalados en servidores web,
     permitiendo su creación, consulta, modificación de estado y monitorización de su expiración.
-    
+
     Incluye sistema de notificaciones automáticas por email para certificados próximos a expirar o expirados.
+
+    **Autenticación requerida**: todos los endpoints requieren una cookie `accessToken` válida,
+    emitida por el servicio de autenticación (`auth_APP`). El token se establece como cookie
+    `httpOnly` tras un login exitoso y se renueva automáticamente vía `/auth/refresh`.
+
+    Los roles disponibles son: `admin`, `editor`, `auditor` y `viewer`. Las operaciones de
+    escritura (POST, PUT, PATCH) requieren rol `editor` o superior.
   version: 1.0.0
   contact:
     name: API Support
@@ -14,7 +21,7 @@ info:
 servers:
   - url: http://localhost:3000
     description: Servidor de desarrollo
-  - url: https://api.ejemplo.com
+  - url: https://tu-servidor.com
     description: Servidor de producción
 
 tags:
@@ -22,6 +29,9 @@ tags:
     description: Operaciones sobre certificados SSL/TLS
   - name: notificaciones
     description: Gestión y consulta de notificaciones por email
+
+security:
+  - cookieAuth: []
 
 paths:
   /api/certif:
@@ -739,3 +749,31 @@ components:
           description: Lista de notificaciones
           items:
             $ref: '#/components/schemas/Notification'
+
+  securitySchemes:
+    cookieAuth:
+      type: apiKey
+      in: cookie
+      name: accessToken
+      description: |
+        Cookie `accessToken` establecida por `POST /auth/login` (en auth_APP).
+        Cookie `httpOnly`, `SameSite=Strict`, con duración de 15 minutos.
+        Se renueva automáticamente vía `POST /auth/refresh` sin necesidad de nuevo login.
+
+  responses:
+    Unauthorized:
+      description: Cookie accessToken ausente, expirada o inválida
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            error: Token de acceso requerido o expirado
+    Forbidden:
+      description: El usuario no tiene los permisos necesarios para esta operación
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            error: Permisos insuficientes para esta operación

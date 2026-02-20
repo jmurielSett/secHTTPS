@@ -1,0 +1,880 @@
+openapi: 3.0.3
+info:
+  title: API de Autenticación y Autorización — auth_APP
+  description: |
+    Servicio de autenticación, autorización y gestión de usuarios para el sistema de
+    gestión de certificados SSL/TLS.
+
+    **Autenticación híbrida**: soporta directorio corporativo LDAP/Active Directory con
+    fallback automático a usuarios locales en base de datos.
+
+    **Tokens**: los tokens se almacenan en cookies `httpOnly` (no accesibles por JavaScript).
+    - `accessToken`: duración 15 minutos.
+    - `refreshToken`: duración 7 días, usado para renovar el access token sin re-login.
+
+    **Roles disponibles**: `admin`, `editor`, `auditor`, `viewer`.
+  version: 1.0.0
+
+servers:
+  - url: http://localhost:4000
+    description: Servidor de desarrollo
+  - url: https://tu-servidor.com
+    description: Servidor de producción
+
+tags:
+  - name: auth
+    description: Autenticación y gestión de sesión
+  - name: admin-roles
+    description: Gestión de roles RBAC (requiere rol admin)
+  - name: admin-users
+    description: Gestión de usuarios (requiere rol admin)
+
+paths:
+
+  # ---------------------------------------------------------------------------
+  # Auth endpoints
+  # ---------------------------------------------------------------------------
+
+  /auth/login:
+    post:
+      tags:
+        - auth
+      summary: Iniciar sesión
+      description: |
+        Autentica al usuario contra LDAP (si está disponible) o base de datos local.
+        En caso de éxito, establece las cookies `accessToken` y `refreshToken` como
+        cookies `httpOnly`.
+
+        Si se proporciona `applicationName`, el token incluye únicamente los roles del
+        usuario para esa aplicación (recomendado). Sin él, el token incluye los roles
+        de todas las aplicaciones.
+
+        La cuenta queda bloqueada temporalmente tras superar el número máximo de
+        intentos fallidos configurado.
+      operationId: login
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginInput'
+            example:
+              username: jperez
+              password: miContraseña123
+              applicationName: secHTTPS_APP
+      responses:
+        '200':
+          description: Login correcto. Cookies establecidas.
+          headers:
+            Set-Cookie:
+              description: |
+                Cookies httpOnly establecidas:
+                - `accessToken` (15 min, SameSite=Strict)
+                - `refreshToken` (7 días, SameSite=Strict)
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LoginResponse'
+        '400':
+          description: Faltan campos obligatorios o formato inválido
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error:
+                  code: VALIDATION_ERROR
+                  message: Username and password are required
+        '401':
+          description: Credenciales incorrectas o cuenta bloqueada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                credenciales_incorrectas:
+                  summary: Contraseña incorrecta
+                  value:
+                    error:
+                      code: INVALID_CREDENTIALS
+                      message: Credenciales incorrectas
+                cuenta_bloqueada:
+                  summary: Cuenta bloqueada por intentos fallidos
+                  value:
+                    error:
+                      code: ACCOUNT_LOCKED
+                      message: Cuenta bloqueada temporalmente
+        '503':
+          description: Servidor LDAP no disponible (error de conexión)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error:
+                  code: LDAP_UNAVAILABLE
+                  message: "LDAP_UNAVAILABLE: No se puede conectar con el servidor LDAP"
+
+  /auth/refresh:
+    post:
+      tags:
+        - auth
+      summary: Renovar tokens
+      description: |
+        Renueva el `accessToken` usando el `refreshToken` almacenado en cookie.
+        Si el `refreshToken` no está en cookie, también se acepta en el body como
+        fallback.
+      operationId: refresh
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                refreshToken:
+                  type: string
+                  description: Refresh token (alternativa a la cookie, solo si no hay cookie)
+                  example: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+      responses:
+        '200':
+          description: Tokens renovados correctamente. Nuevas cookies establecidas.
+          headers:
+            Set-Cookie:
+              description: Cookies `accessToken` y `refreshToken` renovadas
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RefreshResponse'
+        '400':
+          description: Refresh token ausente o con formato inválido
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Refresh token expirado o inválido
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /auth/validate:
+    post:
+      tags:
+        - auth
+      summary: Validar token
+      description: |
+        Valida la firma y la expiración de un access token y retorna su payload.
+        Verificación stateless: no consulta base de datos ni permisos actuales.
+      operationId: validateToken
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - token
+              properties:
+                token:
+                  type: string
+                  description: Access token JWT a validar
+                  example: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+      responses:
+        '200':
+          description: Token válido
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidateResponse'
+        '400':
+          description: Token ausente o con formato inválido
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Token inválido o expirado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /auth/logout:
+    post:
+      tags:
+        - auth
+      summary: Cerrar sesión
+      description: Invalida las cookies `accessToken` y `refreshToken` del navegador.
+      operationId: logout
+      security:
+        - cookieAuth: []
+      responses:
+        '200':
+          description: Sesión cerrada correctamente
+          headers:
+            Set-Cookie:
+              description: Cookies `accessToken` y `refreshToken` borradas (Max-Age=0)
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: Logout successful
+
+  /auth/register:
+    post:
+      tags:
+        - auth
+      summary: Registrar usuario
+      description: |
+        Registra un nuevo usuario local en la base de datos.
+        En entornos de producción este endpoint está restringido a peticiones autorizadas.
+      operationId: register
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegisterInput'
+      responses:
+        '201':
+          description: Usuario registrado correctamente
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserResponse'
+        '400':
+          description: Datos inválidos o usuario ya existente
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  # ---------------------------------------------------------------------------
+  # Admin — Role management
+  # ---------------------------------------------------------------------------
+
+  /admin/roles/assign:
+    post:
+      tags:
+        - admin-roles
+      summary: Asignar rol a usuario en una aplicación
+      description: Asigna un rol RBAC a un usuario para una aplicación concreta.
+      operationId: assignRole
+      security:
+        - cookieAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RoleAssignInput'
+      responses:
+        '200':
+          description: Rol asignado correctamente
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessMessage'
+        '400':
+          description: Datos inválidos
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /admin/roles/revoke:
+    post:
+      tags:
+        - admin-roles
+      summary: Revocar rol de usuario en una aplicación
+      description: Revoca un rol RBAC de un usuario en una aplicación concreta.
+      operationId: revokeRole
+      security:
+        - cookieAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RoleAssignInput'
+      responses:
+        '200':
+          description: Rol revocado correctamente
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessMessage'
+        '400':
+          description: Datos inválidos
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /admin/roles/revoke-all-in-app:
+    post:
+      tags:
+        - admin-roles
+      summary: Revocar todos los roles de un usuario en una aplicación
+      description: Elimina todos los roles RBAC de un usuario para una aplicación concreta.
+      operationId: revokeAllRolesInApp
+      security:
+        - cookieAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - userId
+                - applicationName
+              properties:
+                userId:
+                  type: string
+                  format: uuid
+                  example: 123e4567-e89b-12d3-a456-426614174000
+                applicationName:
+                  type: string
+                  example: secHTTPS_APP
+      responses:
+        '200':
+          description: Roles revocados correctamente
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessMessage'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /admin/roles/revoke-all:
+    post:
+      tags:
+        - admin-roles
+      summary: Revocar todos los roles de un usuario en todas las aplicaciones
+      description: Elimina todos los roles RBAC de un usuario en todas las aplicaciones.
+      operationId: revokeAllRoles
+      security:
+        - cookieAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - userId
+              properties:
+                userId:
+                  type: string
+                  format: uuid
+                  example: 123e4567-e89b-12d3-a456-426614174000
+      responses:
+        '200':
+          description: Todos los roles revocados correctamente
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessMessage'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /admin/cache/invalidate:
+    post:
+      tags:
+        - admin-roles
+      summary: Invalidar caché de permisos de un usuario
+      description: |
+        Fuerza la recarga de los permisos RBAC de un usuario en la siguiente petición.
+        Útil tras cambios manuales en base de datos o tras asignar/revocar roles.
+      operationId: invalidateCache
+      security:
+        - cookieAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - userId
+              properties:
+                userId:
+                  type: string
+                  format: uuid
+                  example: 123e4567-e89b-12d3-a456-426614174000
+      responses:
+        '200':
+          description: Caché invalidada correctamente
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessMessage'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  # ---------------------------------------------------------------------------
+  # Admin — User management
+  # ---------------------------------------------------------------------------
+
+  /admin/users:
+    get:
+      tags:
+        - admin-users
+      summary: Listar usuarios
+      description: Devuelve la lista de todos los usuarios registrados en el sistema.
+      operationId: getUsers
+      security:
+        - cookieAuth: []
+      responses:
+        '200':
+          description: Lista de usuarios
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/User'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+    post:
+      tags:
+        - admin-users
+      summary: Crear usuario
+      description: Crea un nuevo usuario local en el sistema con el rol especificado.
+      operationId: createUser
+      security:
+        - cookieAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateUserInput'
+      responses:
+        '201':
+          description: Usuario creado correctamente
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserResponse'
+        '400':
+          description: Datos inválidos o usuario ya existente
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /admin/users/{id}:
+    get:
+      tags:
+        - admin-users
+      summary: Obtener usuario por ID
+      operationId: getUserById
+      security:
+        - cookieAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          example: 123e4567-e89b-12d3-a456-426614174000
+      responses:
+        '200':
+          description: Usuario encontrado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          description: Usuario no encontrado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+    put:
+      tags:
+        - admin-users
+      summary: Actualizar usuario
+      description: Actualiza los datos de un usuario existente (email, contraseña, rol).
+      operationId: updateUser
+      security:
+        - cookieAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          example: 123e4567-e89b-12d3-a456-426614174000
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateUserInput'
+      responses:
+        '200':
+          description: Usuario actualizado correctamente
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserResponse'
+        '400':
+          description: Datos inválidos
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          description: Usuario no encontrado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+    delete:
+      tags:
+        - admin-users
+      summary: Eliminar usuario
+      description: Elimina permanentemente un usuario del sistema.
+      operationId: deleteUser
+      security:
+        - cookieAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          example: 123e4567-e89b-12d3-a456-426614174000
+      responses:
+        '204':
+          description: Usuario eliminado correctamente
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          description: Usuario no encontrado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+components:
+  securitySchemes:
+    cookieAuth:
+      type: apiKey
+      in: cookie
+      name: accessToken
+      description: |
+        Cookie `accessToken` establecida por `/auth/login` o `/auth/refresh`.
+        Se trata de una cookie `httpOnly`, `SameSite=Strict`, inaccesible por JavaScript.
+
+  responses:
+    Unauthorized:
+      description: Token ausente, expirado o inválido
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            error:
+              code: UNAUTHORIZED
+              message: Token de acceso requerido
+    Forbidden:
+      description: El usuario no tiene el rol `admin` requerido
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            error:
+              code: FORBIDDEN
+              message: Se requiere rol admin
+
+  schemas:
+    LoginInput:
+      type: object
+      required:
+        - username
+        - password
+      properties:
+        username:
+          type: string
+          description: Nombre de usuario (mínimo 3 caracteres)
+          example: jperez
+        password:
+          type: string
+          format: password
+          description: Contraseña del usuario
+          example: miContraseña123
+        applicationName:
+          type: string
+          description: |
+            Nombre de la aplicación para la que se solicita el token.
+            Si se proporciona, el token incluye solo los roles de esa aplicación (recomendado).
+          example: secHTTPS_APP
+
+    LoginResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        user:
+          $ref: '#/components/schemas/UserPayload'
+        message:
+          type: string
+          example: Login successful, tokens stored in httpOnly cookies
+
+    RefreshResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        user:
+          $ref: '#/components/schemas/UserPayload'
+        message:
+          type: string
+          example: Tokens refreshed successfully
+
+    ValidateResponse:
+      type: object
+      properties:
+        valid:
+          type: boolean
+          example: true
+        payload:
+          $ref: '#/components/schemas/UserPayload'
+
+    UserPayload:
+      type: object
+      description: Payload incluido en los tokens JWT
+      properties:
+        userId:
+          type: string
+          format: uuid
+          example: 123e4567-e89b-12d3-a456-426614174000
+        username:
+          type: string
+          example: jperez
+        email:
+          type: string
+          format: email
+          example: jperez@empresa.com
+        roles:
+          type: array
+          description: Roles del usuario (para la aplicación solicitada, o de todas si no se especificó)
+          items:
+            type: string
+            enum: [admin, editor, auditor, viewer]
+          example: [editor]
+        applicationName:
+          type: string
+          description: Aplicación para la que se emitió el token
+          example: secHTTPS_APP
+
+    RegisterInput:
+      type: object
+      required:
+        - username
+        - email
+        - password
+      properties:
+        username:
+          type: string
+          description: Nombre de usuario (mínimo 3 caracteres)
+          example: nuevo_usuario
+        email:
+          type: string
+          format: email
+          example: nuevo@empresa.com
+        password:
+          type: string
+          format: password
+          description: Contraseña (mínimo 8 caracteres)
+          example: Contr4señaSegura!
+
+    CreateUserInput:
+      type: object
+      required:
+        - username
+        - email
+        - password
+        - role
+      properties:
+        username:
+          type: string
+          example: nuevo_editor
+        email:
+          type: string
+          format: email
+          example: editor@empresa.com
+        password:
+          type: string
+          format: password
+          example: Contr4señaSegura!
+        role:
+          type: string
+          enum: [admin, editor, auditor, viewer]
+          example: editor
+
+    UpdateUserInput:
+      type: object
+      description: Todos los campos son opcionales; solo se actualizan los proporcionados.
+      properties:
+        email:
+          type: string
+          format: email
+          example: nuevo_email@empresa.com
+        password:
+          type: string
+          format: password
+          example: NuevaContraseña1!
+        role:
+          type: string
+          enum: [admin, editor, auditor, viewer]
+          example: auditor
+
+    User:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          example: 123e4567-e89b-12d3-a456-426614174000
+        username:
+          type: string
+          example: jperez
+        email:
+          type: string
+          format: email
+          example: jperez@empresa.com
+        role:
+          type: string
+          enum: [admin, editor, auditor, viewer]
+          example: editor
+        authProvider:
+          type: string
+          description: |
+            Origen de autenticación del usuario.
+            - `DATABASE`: usuario local con contraseña propia.
+            - URL LDAP (p. ej. `ldap://192.168.1.8:389`): usuario sincronizado desde LDAP.
+          example: DATABASE
+        createdAt:
+          type: string
+          format: date-time
+          example: 2026-01-15T10:00:00Z
+        updatedAt:
+          type: string
+          format: date-time
+          example: 2026-02-01T08:30:00Z
+
+    UserResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        user:
+          $ref: '#/components/schemas/User'
+
+    RoleAssignInput:
+      type: object
+      required:
+        - userId
+        - role
+        - applicationName
+      properties:
+        userId:
+          type: string
+          format: uuid
+          example: 123e4567-e89b-12d3-a456-426614174000
+        role:
+          type: string
+          enum: [admin, editor, auditor, viewer]
+          example: editor
+        applicationName:
+          type: string
+          example: secHTTPS_APP
+
+    SuccessMessage:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        message:
+          type: string
+          example: Operación completada correctamente
+
+    ErrorResponse:
+      type: object
+      required:
+        - error
+      properties:
+        error:
+          type: object
+          required:
+            - code
+            - message
+          properties:
+            code:
+              type: string
+              description: Código de error interno
+              example: INVALID_CREDENTIALS
+            message:
+              type: string
+              description: Descripción legible del error
+              example: Credenciales incorrectas
