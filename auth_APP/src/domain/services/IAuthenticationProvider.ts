@@ -9,6 +9,7 @@ export interface AuthenticationResult {
   email?: string;
   error?: string;
   providerDetails?: string; // e.g., 'ldap://192.168.1.8:389' for LDAP, 'DATABASE' for database
+  isConnectionError?: boolean; // true when server is unreachable (timeout, network error)
 }
 
 export interface IAuthenticationProvider {

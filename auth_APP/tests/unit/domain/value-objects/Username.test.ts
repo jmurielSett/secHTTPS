@@ -10,6 +10,10 @@ describe('Username Value Object', () => {
       'ABC',
       'a1b2c3',
       '  trimmed  ', // leading/trailing spaces are trimmed
+      // AD-compatible formats:
+      'jordi.muriel',    // dots allowed (AD sAMAccountName)
+      'jordi@pssjd.local', // @ allowed (UPN format)
+      'has space',       // spaces allowed (AD display names)
     ])('should create username for "%s"', (input) => {
       expect(() => Username.create(input)).not.toThrow();
     });
@@ -30,9 +34,8 @@ describe('Username Value Object', () => {
       ['', 'Username cannot be empty'],
       ['   ', 'Username cannot be empty'],
       ['ab', 'Username must be at least 3 characters'],
-      ['has space', 'Username can only contain letters'],
-      ['invalid!', 'Username can only contain letters'],
-      ['dot.in.name', 'Username can only contain letters'],
+      ['invalid!', 'Username contains invalid characters'],
+      ['name#tag', 'Username contains invalid characters'],
     ])('should throw for "%s"', (input, expectedFragment) => {
       expect(() => Username.create(input)).toThrow(expectedFragment);
     });
