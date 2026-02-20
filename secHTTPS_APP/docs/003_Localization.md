@@ -30,8 +30,7 @@ Proporcionar notificaciones por email en el idioma preferido de cada responsable
 │         JSON Template Files (por idioma)                    │
 │  /templates/es/certificate_creation.json                    │
 │  /templates/en/certificate_creation.json                    │
-│  /templates/fr/certificate_creation.json                    │
-│  /templates/de/certificate_creation.json                    │
+│  /templates/ca/certificate_creation.json                    │
 │  ...                                                        │
 └─────────────────────────────────────────────────────────────┘
 ```
@@ -47,7 +46,7 @@ Proporcionar notificaciones por email en el idioma preferido de cada responsable
    a. LocalizationService.getEmailContent(
         template: 'CERTIFICATE_CREATION',
         certificate: {...},
-        language: contacto.language  // 'es', 'en', 'fr', 'de'
+        language: contacto.language  // 'es', 'en', 'ca'
       )
    b. Cargar template JSON desde /templates/{language}/{template}.json
    c. Reemplazar variables dinámicas ({{fileName}}, {{server}}, etc.)
@@ -69,7 +68,7 @@ Proporcionar notificaciones por email en el idioma preferido de cada responsable
 ```typescript
 interface ResponsibleContact {
   email: string;        // Dirección email válida
-  language: string;     // 'es' | 'en' | 'fr' | 'de'
+  language: string;     // 'es' | 'en' | 'ca'
   name?: string;        // Nombre opcional del contacto
 }
 ```
@@ -79,8 +78,7 @@ interface ResponsibleContact {
 enum SupportedLanguage {
   ES = 'es',  // Español (España/Latinoamérica)
   EN = 'en',  // English (Internacional)
-  FR = 'fr',  // Français (Francia)
-  DE = 'de',  // Deutsch (Alemania)
+  CA = 'ca',  // Català
 }
 ```
 

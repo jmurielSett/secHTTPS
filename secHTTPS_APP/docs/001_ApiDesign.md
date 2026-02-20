@@ -34,7 +34,7 @@ API REST para gestionar el ciclo de vida de certificados SSL/TLS instalados en s
 ```json
 {
   "email": "string (formato email válido)",
-  "language": "es | en | fr | de",
+  "language": "es | en | ca",
   "name": "string (opcional)"
 }
 ```
@@ -42,8 +42,7 @@ API REST para gestionar el ciclo de vida de certificados SSL/TLS instalados en s
 **Idiomas soportados**:
 - `es`: Español (España/Latinoamérica)
 - `en`: English (Internacional)
-- `fr`: Français (Francia)
-- `de`: Deutsch (Alemania)
+- `ca`: Català
 
 **Comportamiento multiidioma**:
 - Cada contacto recibe notificaciones en su idioma preferido
@@ -335,7 +334,7 @@ Response 201:
 - **Destinatarios**: Contactos definidos en el campo `responsibleContacts` del certificado
 - **Localización**:
   - Cada contacto recibe el email en su idioma preferido (`language`)
-  - Templates disponibles: Español (es), English (en), Français (fr), Deutsch (de)
+  - Templates disponibles: Español (es), English (en), Català (ca)
   - Emails enviados **individualmente** (un email por contacto, no CC/BCC masivo)
   - Asunto, cuerpo HTML y texto plano completamente localizados
   - Formato profesional con colores según severidad (amarillo=WARNING, naranja=EXPIRED)

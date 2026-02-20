@@ -596,13 +596,12 @@ components:
           example: admin@empresa.com
         language:
           type: string
-          enum: [es, en, fr, de]
+          enum: [es, en, ca]
           description: |
             Idioma preferido para notificaciones del contacto.
             - es: Español
             - en: English
-            - fr: Français
-            - de: Deutsch
+            - ca: Català
           example: es
         name:
           type: string

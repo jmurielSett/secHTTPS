@@ -1,260 +1,554 @@
 # secHTTPS_APP — Gestión de Certificados SSL/TLS
 
-Sistema fullstack para gestionar el ciclo de vida de certificados SSL/TLS en servidores HTTPS, con monitoreo automático de expiración y notificaciones multiidioma.
+Aplicación web completa (backend + frontend) para registrar, monitorizar y recibir alertas sobre
+certificados SSL/TLS instalados en servidores. Forma parte del monorepo `secHTTPS` junto a
+`auth_APP`, que gestiona toda la autenticación y autorización.
+
+> Documentación técnica detallada en [`docs/`](docs/) · Decisiones de arquitectura en [`adr/`](adr/)
 
 ---
 
-## Descripción
+## Índice
 
-secHTTPS_APP es una aplicación web completa (**cliente + servidor**) que permite:
-
-- Registrar y gestionar certificados SSL/TLS de múltiples servidores.
-- Monitorear su estado de expiración en tiempo real (NORMAL → WARNING → EXPIRED).
-- Enviar notificaciones por email personalizadas en el idioma preferido de cada responsable.
-- Ejecutar alertas automáticas mediante un scheduler diario configurable.
-- Controlar el acceso mediante RBAC delegado en `auth_APP`.
+1. [Visión funcional](#1-visión-funcional)
+2. [Control de acceso por rol (RBAC)](#2-control-de-acceso-por-rol-rbac)
+3. [Arquitectura del sistema](#3-arquitectura-del-sistema)
+4. [Estructura del proyecto](#4-estructura-del-proyecto)
+5. [Diagramas de secuencia](#5-diagramas-de-secuencia)
+6. [Sistema de migraciones](#6-sistema-de-migraciones)
+7. [Modelo de datos](#7-modelo-de-datos)
+8. [API](#8-api)
+9. [Instalación](#9-instalación)
+10. [Variables de entorno](#10-variables-de-entorno)
+11. [Scripts disponibles](#11-scripts-disponibles)
+12. [Tests](#12-tests)
+13. [Documentación técnica](#13-documentación-técnica)
 
 ---
 
-## Arquitectura
+## 1. Visión funcional
+
+### ¿Qué hace esta aplicación?
+
+```
+Usuario →  Login (auth_APP) → Accede a secHTTPS_APP
+                                    ↓
+                     Gestiona certificados SSL/TLS:
+                       · Alta / Edición / Baja lógica
+                       · Cada certificado tiene responsables
+                         con idioma preferido (ES · EN · CA)
+                                    ↓
+                     Monitorización automática (servidor):
+                       · Estado calculado en tiempo real
+                         NORMAL → WARNING (≤7 días) → EXPIRED
+                       · Scheduler diario: detecta WARNING/EXPIRED
+                         y envía email a cada responsable
+                         en su idioma (ES / EN / CA)
+                       · Cooldowns: WARNING cada 48h / EXPIRED cada 24h
+                                    ↓
+                     Historial de notificaciones de cada certificado
+```
+
+### Flujo funcional por pantalla
+
+| Pantalla | Qué permite hacer |
+|---|---|
+| **Login** | Autenticarse contra LDAP corporativo o base de datos local. Bloqueo tras 10 intentos fallidos (3 min). Modal de reintento ante fallos de red. |
+| **Lista de certificados** | Ver todos los certificados con estado de expiración calculado. Filtrar por cliente, servidor, nombre, estado y estado de expiración. |
+| **Detalle / Edición** | Ver datos completos, editar, cambiar estado a DELETED. Acciones protegidas por rol. |
+| **Crear certificado** | Formulario con validación de dominio (Value Objects). El servidor envía email de confirmación al crear. |
+| **Notificaciones** | Historial de alertas enviadas por el scheduler. Solo lectura. |
+
+---
+
+## 2. Control de acceso por rol (RBAC)
+
+El token JWT (emitido por `auth_APP`) contiene el rol del usuario. El servidor lo extrae de la
+cookie `httpOnly` en cada petición y aplica los permisos correspondientes.
+
+> El rol se asigna en `auth_APP` por un administrador. El usuario no puede modificar su propio rol.
+
+| Acción | `admin` | `editor` | `viewer` | `auditor` |
+|---|:---:|:---:|:---:|:---:|
+| Ver listado de certificados | ✅ | ✅ | ✅ | ✅ |
+| Ver detalle de certificado | ✅ | ✅ | ✅ | ✅ |
+| Crear certificado | ✅ | ✅ | — | — |
+| Editar certificado | ✅ | ✅ | — | — |
+| Dar de baja certificado (DELETED) | ✅ | ✅ | — | — |
+| Ver notificaciones | ✅ | — | — | ✅ |
+| Lanzar envío manual de notificaciones | ✅ | — | — | — |
+
+Lanzar envío manual de notificaciones* -> por desarrollar
+
+Las acciones no permitidas para el rol del usuario quedan visualmente deshabilitadas en el
+frontend (botones ocultos o inactivos) y adicionalmente rechazadas en el servidor.
+
+---
+
+## 3. Arquitectura del sistema
+
+### 3.1. Vista general
 
 ```mermaid
 graph LR
-    subgraph Cliente["Cliente (React + Vite :5173)"]
-        LOGIN[Login Component]
+    subgraph Cliente["Frontend — React + Vite (:5173)"]
+        LOGIN[Login]
         UI[Componentes React]
-        TC[tRPC Client + TanStack Query]
+        TC["tRPC Client<br/>TanStack Query"]
+        PERM["usePermissions<br/>hook"]
     end
 
-    subgraph Servidor["Servidor secHTTPS (Express :3000)"]
-        MW["JWT Middleware\n(verifica localmente)"]
+    subgraph Servidor["Backend — Express + Node.js (:3000)"]
+        MW["JWT Middleware<br/>(verifica localmente)"]
         TR[tRPC Router]
-        RT[REST API Routes]
-        subgraph Domain["Dominio (Clean Architecture)"]
-            UC_C[Use Cases\nCertificados]
-            UC_N[Use Cases\nNotificaciones]
-            SVC[CertificateExpirationService]
+        RT[REST Routes /api]
+        subgraph Domain["Dominio — Clean Architecture"]
+            UC_C["Use Cases<br/>Certificados"]
+            UC_N["Use Cases<br/>Notificaciones"]
+            SVC[ExpirationService]
+            VO[Value Objects]
         end
-        SCHED[Scheduler\nnode-cron]
-        EMAIL[Email Service\nNodemailer]
-        LOC[Localization Service\nES/EN/CA]
+        SCHED["Scheduler<br/>node-cron"]
+        EMAIL[Nodemailer]
+        LOC["LocalizationService<br/>ES / EN / CA"]
     end
 
-    subgraph Persistencia["Persistencia"]
-        PG[(PostgreSQL)]
-        MEM[(InMemory)]
+    subgraph DB["Persistencia"]
+        PG[("PostgreSQL<br/>producción")]
+        MEM[("InMemory<br/>tests / dev")]
     end
 
-    AUTH_APP["auth_APP\n:4000"]
+    AUTH_APP["auth_APP (:4000)<br/>JWT · LDAP · RBAC"]
 
-    LOGIN -- "POST /auth/login\nPOST /auth/logout\nPOST /auth/refresh" --> AUTH_APP
-    AUTH_APP -- "accessToken + refreshToken\n(httpOnly cookies)" --> LOGIN
-    LOGIN -- "autenticado" --> UI
+    LOGIN -- "POST /auth/login<br/>logout · refresh" --> AUTH_APP
+    AUTH_APP -- "cookies httpOnly<br/>accessToken + refreshToken" --> LOGIN
     UI --> TC
-    TC -- "/trpc (+ cookie accessToken)" --> TR
-    TR --> MW
-    MW -- "jwt.verify(secret local)" --> TR
-    TR --> UC_C
-    TR --> UC_N
-    RT --> UC_C
-    RT --> UC_N
-    UC_C --> SVC
+    TC -- "/trpc + cookie" --> MW
+    RT -- "/api + cookie" --> MW
+    MW --> TR
+    TR --> UC_C & UC_N
+    RT --> UC_C & UC_N
+    UC_C --> SVC & VO
     SCHED --> UC_N
-    UC_N --> EMAIL
-    EMAIL --> LOC
-    UC_C --> PG
-    UC_C --> MEM
-    UC_N --> PG
-    UC_N --> MEM
+    UC_N --> EMAIL --> LOC
+    UC_C & UC_N --> PG & MEM
+    PERM --> TC
 ```
 
-> **Clave de seguridad:** El servidor `secHTTPS_APP` **nunca llama a `auth_APP`** en tiempo de petición. Verifica el JWT localmente usando el `JWT_ACCESS_SECRET` compartido. Es el **cliente** quien habla con `auth_APP` para login/logout/refresh, recibiendo cookies `httpOnly` que se envían automáticamente en cada petición tRPC.
+> **Punto clave de seguridad:** el servidor `secHTTPS_APP` **nunca llama a `auth_APP`** durante
+> una petición. Verifica el JWT localmente con el `JWT_ACCESS_SECRET` compartido. Es el
+> *cliente* (navegador) quien habla con `auth_APP` para login / logout / refresh.
 
-### Capas (Clean Architecture)
+### 3.2. Clean Architecture — Hexagonal
 
-| Capa | Responsabilidad |
-|------|-----------------|
-| `domain/usecases/` | Lógica de negocio pura (independiente de infraestructura) |
-| `domain/services/` | Servicios de dominio (cálculo de expiración, interfaces de email/localización) || `domain/valueObjects/` | Value Objects de dominio (`EmailAddress`, `LanguageCode`, `CertificateDateRange`) || `domain/repositories/` | Interfaces de persistencia (contratos) |
-| `infrastructure/persistence/` | Implementaciones: `InMemory*` y `Postgres*` |
-| `infrastructure/trpc/` | Router tRPC + JWT middleware para cliente React |
-| `infrastructure/transport/` | Endpoints REST para integración entre servicios |
-| `infrastructure/scheduling/` | Scheduler node-cron |
-| `infrastructure/messaging/` | Implementación Nodemailer |
-| `client/src/` | SPA React con TanStack Query + tRPC |
+El proyecto aplica los principios de Clean Architecture (también llamada Hexagonal o
+Ports & Adapters). Las reglas son:
 
-### Value Objects
+1. **Regla de dependencias**: las capas internas no conocen las externas — el dominio no
+   importa nada de Express, PostgreSQL ni Nodemailer.
+2. **Puertos** (interfaces) en el dominio expresan lo que el dominio *necesita*
+   (`ICertificateRepository`, `IEmailService`, `ILocalizationService`).
+3. **Adaptadores** en la infraestructura implementan esos puertos
+   (`PostgresCertificateRepository`, `NodemailerEmailService`).
+4. **Composición en el borde**: `createApp()` selecciona las implementaciones concretas
+   sin que los use cases lo sepan.
+5. **DTOs** en la capa de transporte; **Value Objects / Entidades** solo en el dominio.
 
-Los Value Objects encapsulan reglas de negocio como invariantes de construcción. Solo pueden crearse a través de su método `create()`, que lanza `ValidationError` si los datos no son válidos. Una vez construidos, su estado es inmutable.
+```
+┌──────────────────────────────────────────────────────────────┐
+│  TRANSPORT LAYER  (Express · tRPC · REST)                    │
+│  — Serialización/deserialización, cookies, cabeceras HTTP    │
+└──────────────────────┬───────────────────────────────────────┘
+                       │ DTOs (primitivos)
+┌──────────────────────▼───────────────────────────────────────┐
+│  APPLICATION LAYER  (Use Cases)                              │
+│  — Orquestación: obtener datos, aplicar reglas, persistir    │
+└──────────────────────┬───────────────────────────────────────┘
+                       │ Entidades / Value Objects
+┌──────────────────────▼───────────────────────────────────────┐
+│  DOMAIN LAYER  (Entities · VOs · Interfaces · Services)      │
+│  — Reglas de negocio puras, sin IO, sin frameworks           │
+└──────────────────────────────────────────────────────────────┘
+        ↑ implementan los puertos (interfaces de dominio)
+┌───────────────────────────────────────────────────────────────┐
+│  INFRASTRUCTURE LAYER                                         │
+│  PostgreSQL · InMemory · Nodemailer · node-cron · tRPC/REST  │
+└───────────────────────────────────────────────────────────────┘
+```
 
-| Value Object | Invariante | Error code |
+### 3.3. Value Objects de dominio
+
+Los Value Objects encapsulan invariantes de construcción. Solo se crean a través de `create()`,
+que lanza `ValidationError` si los datos no son válidos. Una vez construidos son inmutables.
+
+| Value Object | Invariante |
+|---|---|
+| `EmailAddress` | Formato RFC válido, normalizado a minúsculas |
+| `LanguageCode` | Pertenece a `SupportedLanguage` (`es`, `en`, `ca`) |
+| `CertificateDateRange` | `expirationDate` estrictamente posterior a `startDate` |
+
+### 3.4. tRPC + REST: coexistencia intencionada
+
+| Canal | Consumidor | Por qué |
 |---|---|---|
-| `EmailAddress` | Formato RFC válido (`user@domain.ext`), normalizado a minúsculas | `INVALID_EMAIL_FORMAT` |
-| `LanguageCode` | Pertenece a `SupportedLanguage` (`es`, `en`, `fr`, `de`) | `INVALID_LANGUAGE_CODE` |
-| `CertificateDateRange` | `expirationDate` estrictamente posterior a `startDate` y ambas fechas parseables | `INVALID_DATE_RANGE` |
+| `/trpc` | Frontend React | Type-safety end-to-end sin generar clientes |
+| `/api/certif`, `/api/notif` | Scripts externos, Postman, pipelines CI/CD | Interoperabilidad estándar HTTP |
 
-Se usan internamente en los use cases (`CreateCertificateUseCase`, `UpdateCertificateUseCase`) para validar los datos de entrada. Los DTOs siguen siendo `string` / `string[]` — los Value Objects no se exponen en la capa de transporte.
+Ambos canales comparten los mismos use cases del dominio y el mismo middleware JWT.
 
 ---
 
-## Flujo de Notificaciones
+## 4. Estructura del proyecto
+
+### 4.1. Backend (`src/`)
+
+```
+src/
+├── app.ts                        # Factory: createApp() — composición de dependencias
+├── server.ts                     # Punto de entrada: startServer()
+│
+├── domain/
+│   ├── repositories/             # Puertos (interfaces) de persistencia
+│   │   ├── ICertificateRepository.ts
+│   │   └── INotificationRepository.ts
+│   ├── services/
+│   │   ├── CertificateExpirationService.ts   # NORMAL / WARNING / EXPIRED
+│   │   ├── IEmailService.ts                  # Puerto de email
+│   │   └── ILocalizationService.ts           # Puerto de localización
+│   ├── usecases/
+│   │   ├── certificates/
+│   │   │   ├── CreateCertificateUseCase.ts   # + email de confirmación
+│   │   │   ├── GetCertificatesUseCase.ts
+│   │   │   ├── GetCertificateByIdUseCase.ts
+│   │   │   ├── UpdateCertificateUseCase.ts
+│   │   │   └── UpdateCertificateStatusUseCase.ts
+│   │   └── notifications/
+│   │       ├── CreateNotificationUseCase.ts
+│   │       ├── GetNotificationsUseCase.ts
+│   │       ├── GetCertificateNotificationsUseCase.ts
+│   │       └── SendCertificateNotificationsUseCase.ts  # Proceso cron
+│   └── value-objects/
+│       ├── EmailAddress.ts
+│       ├── LanguageCode.ts
+│       └── CertificateDateRange.ts
+│
+├── infrastructure/
+│   ├── database/
+│   │   ├── connection.ts                     # Pool PostgreSQL (singleton)
+│   │   ├── migrator.ts                       # Motor de migraciones
+│   │   └── migrations/
+│   │       ├── 000_create_database.sql       # Creación BD (admin pool)
+│   │       ├── 001_create_certificates_table.sql
+│   │       └── 002_create_notifications_table.sql
+│   ├── localization/
+│   │   ├── LocalizationService.ts
+│   │   └── templates/
+│   │       ├── es/  ca/  en/                 # JSON por idioma y tipo de email
+│   ├── messaging/
+│   │   └── NodemailerEmailService.ts
+│   ├── middleware/
+│   │   ├── authMiddleware.ts                 # Verifica JWT de cookie
+│   │   └── requestLogger.ts
+│   ├── persistence/
+│   │   ├── CertificateRepository.ts          # InMemory
+│   │   ├── NotificationRepository.ts         # InMemory
+│   │   ├── PostgresCertificateRepository.ts
+│   │   └── PostgresNotificationRepository.ts
+│   ├── scheduling/
+│   │   └── NotificationScheduler.ts          # node-cron wrapper
+│   ├── transport/
+│   │   ├── controllers/
+│   │   │   ├── CertificateController.ts
+│   │   │   └── NotificationController.ts
+│   │   └── routes/
+│   │       ├── certificateRoutes.ts
+│   │       └── notificationRoutes.ts
+│   └── trpc/
+│       ├── trpc.ts                           # Instancia tRPC + contexto JWT
+│       └── routers/
+│           ├── index.ts                      # App Router (combina sub-routers)
+│           ├── certificateRouter.ts
+│           └── notificationRouter.ts
+│
+├── scripts/
+│   ├── migrate.ts                            # npm run db:migrate
+│   ├── reset-db.ts                           # npm run db:reset
+│   └── send-notifications.ts                 # npm run notify:send
+└── types/
+    ├── certificate.ts
+    ├── notification.ts
+    ├── errors.ts
+    └── shared.ts
+```
+
+### 4.2. Frontend (`client/src/`)
+
+```
+client/src/
+├── main.tsx                      # Entry point — TRPCProvider + QueryClientProvider
+├── App.tsx                       # Routing: Login ↔ Aplicación autenticada
+│
+├── components/
+│   ├── auth/
+│   │   └── Login.tsx             # Form login + bloqueo + modal reintento
+│   ├── certificates/
+│   │   ├── CertificatesList.tsx  # Listado principal con filtros
+│   │   ├── CertificatesTable.tsx # Tabla paginada
+│   │   ├── CertificateCard.tsx   # Tarjeta individual (estado expiración coloreado)
+│   │   ├── CertificateFilters.tsx
+│   │   ├── CertificateForm.tsx   # Formulario crear/editar
+│   │   ├── CertificateModal.tsx  # Modal detalle/edición
+│   │   └── CreateCertificateModal.tsx
+│   ├── layout/
+│   │   └── AppHeader.tsx         # Cabecera: usuario, rol, logout
+│   └── ui/
+│       ├── LoadingOverlay.tsx
+│       └── ServerErrorModal.tsx  # Modal LDAP no disponible / error de conexión
+│
+├── hooks/
+│   ├── useAuth.ts                # Estado de sesión: user, roles, logout
+│   ├── usePermissions.ts         # Derivado del rol: canCreate, canEdit, canDelete…
+│   └── useServerConnection.ts   # Gestión reintentos de conexión
+│
+└── utils/
+    ├── trpc.ts                   # Cliente tRPC configurado (URL backend)
+    └── logger.ts
+```
+
+**Hook `usePermissions`:** centralize toda la lógica de qué puede hacer cada rol. Los
+componentes llaman a `const { canCreate, canEdit } = usePermissions()` sin necesidad de
+conocer los nombres de roles ni comparar strings.
+
+---
+
+## 5. Diagramas de secuencia
+
+### 5.1. Login y acceso a la aplicación
 
 ```mermaid
-flowchart TD
-    CRON["Scheduler (node-cron)\ncada día a las 8:00"]
-    GET["GetCertificatesUseCase\nfindAll(status≠DELETED)"]
-    FILTER{"expirationStatus?\n(calculado en tiempo real)"}
-    NORMAL["NORMAL\nIgnorar"]
-    WARN_CHECK{"Última notificación\nhace < 48h?"}
-    EXP_CHECK{"Última notificación\nhace < 24h?"}
-    SKIP["Saltar\n(cooldown activo)"]
-    SEND_W["Enviar email WARNING\npor idioma de contacto"]
-    SEND_E["Enviar email EXPIRED\npor idioma de contacto"]
-    SAVE["CreateNotificationUseCase\nGuardar resultado en BD"]
+sequenceDiagram
+    actor U as Usuario
+    participant FE as Frontend (React)
+    participant AUTH as auth_APP :4000
+    participant BE as secHTTPS_APP :3000
 
-    CRON --> GET
-    GET --> FILTER
-    FILTER -->|NORMAL| NORMAL
-    FILTER -->|WARNING| WARN_CHECK
-    FILTER -->|EXPIRED| EXP_CHECK
-    WARN_CHECK -->|Sí| SKIP
-    WARN_CHECK -->|No| SEND_W
-    EXP_CHECK -->|Sí| SKIP
-    EXP_CHECK -->|No| SEND_E
-    SEND_W --> SAVE
-    SEND_E --> SAVE
+    U->>FE: Introduce credenciales
+    FE->>AUTH: POST /auth/login {username, password, applicationName}
+    AUTH-->>AUTH: Autentica (LDAP → BD local fallback)
+    AUTH-->>FE: 200 OK + Set-Cookie: accessToken, refreshToken (httpOnly)
+    FE->>FE: Almacena user/roles en estado React (no en localStorage)
+    FE->>BE: tRPC certificate.list (cookie accessToken enviada automáticamente)
+    BE-->>BE: jwt.verify(accessToken, JWT_ACCESS_SECRET)
+    BE-->>FE: Lista de certificados
+    FE-->>U: Muestra listado
 ```
 
-**Cooldowns:** WARNING → máximo 1 email cada 48h · EXPIRED → máximo 1 email cada 24h
+### 5.2. Renovación automática de token (Refresh)
+
+```mermaid
+sequenceDiagram
+    participant FE as Frontend (React)
+    participant BE as secHTTPS_APP :3000
+    participant AUTH as auth_APP :4000
+
+    FE->>BE: tRPC query (accessToken expirado)
+    BE-->>FE: 401 UNAUTHORIZED (TOKEN_EXPIRED)
+    FE->>FE: Interceptor detecta 401
+    FE->>AUTH: POST /auth/refresh (cookie refreshToken)
+    AUTH-->>FE: 200 OK + nuevas cookies accessToken + refreshToken
+    FE->>BE: Reintenta la query original (nuevo accessToken)
+    BE-->>FE: Respuesta correcta
+```
+
+### 5.3. Crear certificado
+
+```mermaid
+sequenceDiagram
+    actor U as Usuario (editor o admin)
+    participant FE as Frontend
+    participant BE as Backend :3000
+    participant DB as PostgreSQL
+    participant SMTP as Servidor SMTP
+
+    U->>FE: Rellena formulario y envía
+    FE->>BE: tRPC certificate.create(data)
+    BE->>BE: authMiddleware verifica rol ≥ editor
+    BE->>BE: Value Objects validan EmailAddress, LanguageCode, CertificateDateRange
+    BE->>DB: INSERT certificate + responsible_contacts
+    BE->>SMTP: Envía email de confirmación (por idioma de cada contacto)
+    SMTP-->>BE: OK / ERROR (no bloquea la respuesta)
+    DB-->>BE: Certificado creado
+    BE-->>FE: Certificado creado (201)
+    FE-->>U: Modal éxito + actualiza listado
+```
+
+### 5.4. Proceso automático de notificaciones (scheduler)
+
+```mermaid
+sequenceDiagram
+    participant CRON as Scheduler (node-cron)
+    participant UC as SendNotificationsUseCase
+    participant DB as PostgreSQL
+    participant LS as LocalizationService
+    participant SMTP as Servidor SMTP
+
+    Note over CRON: Cada día a las 08:00 (configurable)
+    CRON->>UC: execute()
+    UC->>DB: Obtener certificados ACTIVE
+    DB-->>UC: Lista de certificados
+    loop Por cada certificado
+        UC->>UC: Calcular expirationStatus (en tiempo real)
+        alt NORMAL
+            UC->>UC: Ignorar
+        else WARNING (cooldown 48h)
+            UC->>DB: ¿Última notificación hace < 48h?
+            DB-->>UC: No → enviar
+            loop Por cada responsable
+                UC->>LS: getEmailContent('WARNING', cert, language)
+                LS-->>UC: subject + htmlBody + textBody localizados
+                UC->>SMTP: sendEmail(to, subject, html, text)
+                SMTP-->>UC: SENT / ERROR
+            end
+            UC->>DB: INSERT notification (resultado)
+        else EXPIRED (cooldown 24h)
+            UC->>DB: ¿Última notificación hace < 24h?
+            DB-->>UC: No → enviar
+            Note over UC: mismo flujo que WARNING
+        end
+    end
+```
 
 ---
 
-## Modelo de Datos
+## 6. Sistema de migraciones
+
+> **Cuándo se ejecutan:** las migraciones **no corren automáticamente** al arrancar el servidor.
+> Deben lanzarse explícitamente con `npm run db:migrate` — antes de la primera puesta en marcha
+> y cada vez que se añadan nuevos ficheros de migración al proyecto.
+
+Las migraciones son ficheros SQL numerados con prefijo de 3 dígitos, ubicados en
+`src/infrastructure/database/migrations/`. El motor `DatabaseMigrator` gestiona la ejecución
+de forma idempotente:
+
+```
+000_create_database.sql   → Ejecuta contra la BD postgres (con usuario admin)
+                             Crea el usuario, la BD y concede privilegios.
+                             Se re-ejecuta siempre, idempotente por diseño.
+
+001_create_certificates_table.sql  ┐
+002_create_notifications_table.sql ┘ Migraciones regulares — BD de la aplicación
+NNN_descripcion.sql                   Se ejecutan en orden numérico
+```
+
+**Control de versiones de esquema:**
+
+```mermaid
+flowchart LR
+    START([npm run db:migrate])
+    DB0["Ejecuta 000_*<br/>contra BD postgres<br/>con usuario admin"]
+    TABLE["CREATE TABLE IF NOT EXISTS migrations<br/>(control de ejecutadas)"]
+    CHECK{"¿filename en<br/>tabla migrations?"}
+    SKIP[Saltar]
+    RUN["BEGIN<br/>Ejecuta SQL<br/>INSERT migrations<br/>COMMIT"]
+    ROLLBACK["ROLLBACK<br/>+ lanza error"]
+    DONE([✅ Completado])
+
+    START --> DB0 --> TABLE
+    TABLE --> CHECK
+    CHECK -->|Sí| SKIP --> DONE
+    CHECK -->|No| RUN
+    RUN -->|Error| ROLLBACK
+    RUN -->|OK| DONE
+```
+
+**Reglas para añadir migraciones:**
+
+- Nombrar con el siguiente número correlativo: `003_descripcion.sql`
+- Las migraciones **ya ejecutadas nunca se modifican** — crear una nueva `NNN+1_fix_...sql`
+- Las migraciones regulares se ejecutan dentro de una transacción (`BEGIN / COMMIT / ROLLBACK`)
+- La migración `000_` se ejecuta con un pool de administrador (credenciales `PG_ADMIN_USER` /
+  `PG_ADMIN_PASSWORD`) — necesario para crear la base de datos y el usuario
+
+---
+
+## 7. Modelo de datos
 
 ```mermaid
 erDiagram
-    Certificate {
-        string id PK
-        string fileName
-        string startDate
-        string expirationDate
-        string server
-        string filePath
-        string client
-        string configPath
-        JSON responsibleContacts
-        enum status
-        enum expirationStatus
-        string createdAt
-        string updatedAt
+    certificates {
+        varchar id PK
+        varchar file_name
+        date start_date
+        date expiration_date
+        varchar server
+        varchar file_path
+        varchar client
+        varchar config_path
+        varchar status "ACTIVE | DELETED"
+        timestamp created_at
+        timestamp updated_at
     }
-    Notification {
-        string id PK
-        string certificateId FK
-        string sentAt
-        string[] recipientEmails
-        string subject
-        enum expirationStatusAtTime
-        enum result
-        string errorMessage
+    certificate_responsible_contacts {
+        serial id PK
+        varchar certificate_id FK
+        varchar email
+        varchar language "es | en | ca"
+        varchar name
     }
-    Certificate ||--o{ Notification : "genera"
+    notifications {
+        varchar id PK
+        varchar certificate_id FK
+        timestamp sent_at
+        varchar subject
+        varchar expiration_status_at_time "NORMAL | WARNING | EXPIRED"
+        varchar result "SENT | ERROR"
+        text error_message
+    }
+    notification_recipient_emails {
+        serial id PK
+        varchar notification_id FK
+        varchar email
+    }
+    migrations {
+        serial id PK
+        varchar filename
+        timestamp executed_at
+    }
+
+    certificates ||--o{ certificate_responsible_contacts : "tiene"
+    certificates ||--o{ notifications : "genera"
+    notifications ||--o{ notification_recipient_emails : "envía a"
 ```
 
-**Estados `expirationStatus`:** `NORMAL` (>7 días) · `WARNING` (0–7 días) · `EXPIRED` (vencido)  
-**Estados `status`:** `ACTIVE` · `DELETED` (borrado lógico)  
-**Resultados notificación:** `SENT` · `ERROR` · `FORCE`
+**Estados `expirationStatus`** (calculado en tiempo real por `CertificateExpirationService`):
 
----
-
-## Stack
-
-| Componente | Tecnología |
-|------------|------------|
-| Frontend | React 19 + TypeScript + Vite |
-| Cliente API | tRPC Client + TanStack Query |
-| Servidor | Express 5 + Node.js 20+ |
-| API tipada | tRPC |
-| Base de datos | PostgreSQL (producción) / InMemory (desarrollo) |
-| Email | Nodemailer |
-| Scheduler | node-cron |
-| Autenticación | JWT via `auth_APP` |
-| Tests unitarios | Vitest 4 |
-| Tests E2E | Playwright |
-| Logging | Logger propio (`LOG_LEVEL`) |
-
----
-
-## RBAC — Control de Acceso
-
-El acceso está delegado en `auth_APP`. Los tokens JWT contienen el rol del usuario, que se verifica en el middleware tRPC:
-
-| Rol | Certificados | Notificaciones |
-|-----|-------------|----------------|
-| `admin` | crear, leer, actualizar, eliminar | enviar, leer |
-| `editor` | crear, leer, actualizar | — |
-| `viewer` | leer | — |
-
-### Seguridad del Login (cliente)
-
-El componente `Login` implementa dos mecanismos de protección en el lado cliente:
-
-#### 1. Bloqueo por exceso de intentos fallidos
-
-| Parámetro | Valor |
+| Estado | Condición |
 |---|---|
-| Intentos antes del bloqueo | 10 |
-| Duración del bloqueo | 3 minutos |
-
-- Cada respuesta `!ok` de `auth_APP` incrementa el contador de intentos.
-- Al alcanzar el límite se calcula `lockoutUntil = Date.now() + 3 min` y se persiste en `localStorage` para sobrevivir recargas de página.
-- Mientras el bloqueo está activo, el formulario se deshabilita y el botón muestra una cuenta atrás en tiempo real (`🔒 Bloqueado (2:47)`).
-- Al expirar el bloqueo se borran los datos de `localStorage` y el formulario vuelve a estar disponible.
-- Los mensajes de error son genéricos (*"Acceso incorrecto"*) — no revelan si el usuario existe ni si la contraseña es incorrecta (principio OWASP).
-
-#### 2. Reintentos ante fallo de conexión
-
-- Si el `fetch` a `auth_APP` lanza un error de red (`TypeError` / `Failed to fetch`), se muestra el modal `ServerErrorModal`.
-- El modal ofrece hasta **3 reintentos** automáticos con feedback visual (spinner + "Intento N de 3").
-- Si los 3 intentos fallan, el modal pasa a modo de error final con instrucción de contactar al responsable.
-- Una vez que la conexión se recupera, el modal se cierra automáticamente y el flujo de login continúa con normalidad.
-
-```
-retryCount=0 → ⚠️  Servidor Inaccesible  → botón [🔄 Reintentar]
-retryCount=1 → ⏳  Conectando...         → spinner (intento 2 de 3)
-retryCount=1 → ⚠️  Servidor Inaccesible  → botón [🔄 Reintentar]  (si falla)
-retryCount=3 → 🚫  Conexión Fallida      → botón [🚪 Salir]  (rojo)
-```
+| `NORMAL` | Más de 7 días para caducar |
+| `WARNING` | 7 días o menos para caducar |
+| `EXPIRED` | Fecha de caducidad superada |
 
 ---
 
-## API
+## 8. API
 
-### tRPC (cliente React — `/trpc`)
+### tRPC — `/trpc` (cliente React)
 
-| Procedimiento | Tipo | Descripción |
-|---------------|------|-------------|
-| `certificate.list` | query | Listar certificados con filtros |
-| `certificate.getById` | query | Obtener certificado por ID |
-| `certificate.create` | mutation | Crear certificado |
-| `certificate.update` | mutation | Actualizar certificado |
-| `certificate.updateStatus` | mutation | Cambiar estado (→ DELETED) |
-| `certificate.getNotifications` | query | Notificaciones de un certificado |
-| `notification.list` | query | Listar notificaciones con filtros |
+| Procedimiento | Tipo | Rol mínimo | Descripción |
+|---|---|---|---|
+| `certificate.list` | query | viewer | Listar con filtros opcionales |
+| `certificate.getById` | query | viewer | Detalle por ID |
+| `certificate.create` | mutation | editor | Crear + email de confirmación |
+| `certificate.update` | mutation | editor | Actualizar datos |
+| `certificate.updateStatus` | mutation | editor | Cambiar a DELETED |
+| `certificate.getNotifications` | query | viewer | Notificaciones del certificado |
+| `notification.list` | query | viewer | Listar notificaciones |
 
-### REST (integración servicios — `/api`)
-
-La API REST se mantiene de forma **intencionada** junto a tRPC por las siguientes razones:
-
-- **Interoperabilidad:** permite que herramientas externas (scripts `curl`, Postman, pipelines CI/CD, otros microservicios) consuman la API sin depender de la librería tRPC ni del cliente React.
-- **Separación de capas de transporte:** el cliente React usa tRPC con type-safety end-to-end; los consumidores externos usan REST con autenticación Bearer estándar. Cada capa sirve a su audiencia.
-- **Agnóstica al cliente:** cualquier sistema capaz de hacer peticiones HTTP puede integrarse sin acoplamiento a la implementación interna.
-
-Ambas capas comparten los mismos use cases del dominio y están protegidas con `authMiddleware` (JWT Bearer).
+### REST — `/api` (integración externa)
 
 | Método | Endpoint | Descripción |
-|--------|----------|-------------|
-| `GET` | `/api/certif` | Listar certificados |
+|---|---|---|
+| `GET` | `/api/certif` | Listar certificados (filtros por query string) |
 | `POST` | `/api/certif` | Crear certificado |
 | `GET` | `/api/certif/:id` | Obtener por ID |
 | `PUT` | `/api/certif/:id` | Actualizar |
@@ -263,168 +557,205 @@ Ambas capas comparten los mismos use cases del dominio y están protegidas con `
 | `GET` | `/api/notif` | Listar notificaciones |
 | `POST` | `/api/notif` | Registrar notificación |
 
+Especificación completa: [`docs/openapi.yaml`](docs/openapi.yaml)
+
 ---
 
-## Instalación
+## 9. Instalación
 
 ### Prerrequisitos
 
 - Node.js 20+
-- PostgreSQL 15+ (opcional — hay modo InMemory)
-- `auth_APP` en ejecución (para autenticación JWT)
+- PostgreSQL 15+ (opcional — hay modo InMemory para desarrollo y tests)
+- `auth_APP` en ejecución y accesible (proporciona los tokens JWT)
 
-### Pasos
+### 9.1. Desarrollo local
 
 ```bash
 # Desde la raíz del monorepo
 cd secHTTPS_APP
+
+# Instalar dependencias (backend + frontend)
 npm install
+cd client && npm install && cd ..
 
-# Configurar entorno
+# Copiar y editar variables de entorno
 cp .env.example .env
-# Editar .env con tus valores
+# Editar .env con los valores de tu entorno local
 
-# Base de datos (si usas PostgreSQL)
+# Iniciar PostgreSQL (si usas Docker)
+npm run docker:up
+
+# Ejecutar migraciones (solo si USE_POSTGRES=true)
 npm run db:migrate
 
-# Arrancar servidor + cliente en modo desarrollo (concurrently)
+# Arrancar backend + frontend con hot-reload (concurrently)
 npm run dev
+```
+
+El backend estará en `http://localhost:3000` y el frontend en `http://localhost:5173`.
+
+> Para conectar con la BD PostgreSQL que corre en el servidor de producción desde local,
+> usar un túnel SSH (mantener la terminal abierta):
+> ```bash
+> ssh -N -L 5432:localhost:5432 usuario@servidor.produccion
+> ```
+
+### 9.2. Producción (servidor)
+
+Las aplicaciones se gestionan con **PM2**. El servidor ya tiene el repositorio clonado
+en `/opt/secHTTPS`.
+
+**Primera instalación:**
+
+```bash
+# En el servidor
+cd /opt/secHTTPS/secHTTPS_APP
+npm install
+cd client && npm install && npm run build && cd ..
+npm run build
+
+# Ejecutar migraciones (solo la primera vez o al añadir nuevas)
+npm run db:migrate
+
+# Iniciar con PM2
+pm2 start dist/server.js --name secHTTPS_server
+pm2 save
+```
+
+**Actualización:**
+
+```bash
+cd /opt/secHTTPS
+git pull
+
+# Si falla el pull por cambios locales en package-lock.json:
+# git checkout -- secHTTPS_APP/package-lock.json
+
+cd secHTTPS_APP
+npm install
+npm run build
+npm run db:migrate     # Solo aplica migraciones nuevas (idempotente)
+pm2 restart secHTTPS_server
+
+# Verificar
+pm2 list
+pm2 logs secHTTPS_server --lines 30
+```
+
+**Variables de entorno en producción:**
+
+```bash
+# Diferencias clave respecto a desarrollo:
+CLIENT_URL=https://servidor.empresa.local:puerto
+VITE_AUTH_APP_URL=https://servidor.empresa.local:puerto
+VITE_BACKEND_URL=https://servidor.empresa.local:puerto
+NODE_ENV=production
+USE_POSTGRES=true
 ```
 
 ---
 
-## Variables de Entorno
+## 10. Variables de entorno
+
+Fichero de referencia: `.env.example`
 
 ```env
-# ─── Cliente (Vite) ────────────────────────────────
-VITE_BACKEND_URL=http://localhost:3000   # URL del servidor secHTTPS_APP
-VITE_AUTH_APP_URL=http://localhost:4000  # URL de auth_APP (login/logout/refresh)
-
-# ─── Servidor ──────────────────────────────────────
+# ─── Servidor ──────────────────────────────────────────────────────────────
 PORT=3000
 NODE_ENV=development
 LOG_LEVEL=info           # debug | info | warn | error
 
-# ─── Base de Datos ─────────────────────────────────
-USE_POSTGRES=false        # false → InMemory (no requiere DB)
-DB_HOST=localhost
-DB_PORT=5432
-DB_NAME=certificates
-DB_USER=postgres
-DB_PASSWORD=postgres
+# ─── Base de datos ─────────────────────────────────────────────────────────
+USE_POSTGRES=false        # false → InMemory (sin PostgreSQL)
+PG_HOST=localhost
+PG_PORT=5432
+PG_DATABASE=sechttps_db
+PG_USER=sechttps_user
+PG_PASSWORD=contraseña_segura
+# Solo para npm run db:migrate (creación de BD):
+PG_ADMIN_USER=postgres
+PG_ADMIN_PASSWORD=contraseña_admin
 
-# ─── CORS / Frontend ───────────────────────────────
+# ─── CORS / Frontend ───────────────────────────────────────────────────────
 CLIENT_URL=http://localhost:5173
 
-# ─── JWT (debe coincidir con auth_APP) ─────────────
-JWT_SECRET=tu-secreto-compartido
+# ─── JWT — debe coincidir exactamente con auth_APP ─────────────────────────
+JWT_ACCESS_SECRET=mismo-secreto-que-en-auth_APP
+APPLICATION_NAME=secHTTPS_APP
 
-# ─── SMTP (email) ──────────────────────────────────
+# ─── SMTP ──────────────────────────────────────────────────────────────────
 SMTP_HOST=smtp.gmail.com
 SMTP_PORT=587
 SMTP_SECURE=false
-SMTP_USER=tu-email@gmail.com
-SMTP_PASSWORD=tu-app-password
+SMTP_USER=notificaciones@empresa.com
+SMTP_PASSWORD=app-password
 
-# ─── Scheduler ─────────────────────────────────────
+# ─── Scheduler ─────────────────────────────────────────────────────────────
 ENABLE_SCHEDULER=true
-CRON_EXPRESSION=0 8 * * *   # cada día a las 8:00 AM
+CRON_EXPRESSION=0 8 * * *   # cada día a las 08:00 (formato cron estándar)
+
+# ─── Frontend (Vite — prefijo VITE_ expuesto al cliente) ───────────────────
+VITE_BACKEND_URL=http://localhost:3000
+VITE_AUTH_APP_URL=http://localhost:4000
 ```
 
 ---
 
-## Scripts
+## 11. Scripts disponibles
 
 ```bash
-npm run dev              # Servidor + cliente con hot-reload (concurrently)
-npm run dev:server       # Solo servidor (tsx --watch)
-npm run dev:client       # Solo cliente (vite)
-npm run build            # Build completo (server + client)
-npm run test:run         # Tests unitarios/integración (una pasada)
+npm run dev              # Backend + frontend con hot-reload (concurrently)
+npm run dev:server       # Solo backend (tsx --watch)
+npm run dev:client       # Solo frontend (vite)
+npm run build            # Build completo (tsc + vite)
+npm run test:run         # Tests unitarios e integración (una pasada, sin watch)
 npm run test:watch       # Tests en modo watch
-npm run test:coverage    # Tests con cobertura
-npm run test:e2e         # Tests Playwright (requiere servidor activo)
-npm run db:migrate       # Ejecutar migraciones SQL
-npm run db:reset         # Resetear base de datos
-npm run notify:send      # Lanzar proceso de notificaciones manualmente
-npm run docker:up        # Levantar PostgreSQL con Docker
-npm run docker:down      # Parar contenedores
+npm run test:coverage    # Tests con informe de cobertura
+npm run test:e2e         # Tests Playwright E2E (requiere servidor activo)
+npm run db:migrate       # Ejecutar migraciones SQL pendientes
+npm run db:reset         # Resetear base de datos (¡destructivo!)
+npm run notify:send      # Lanzar el proceso de notificaciones manualmente
+npm run docker:up        # Levantar PostgreSQL con Docker Compose
+npm run docker:down      # Parar contenedores Docker
 ```
 
 ---
 
-## Tests
+## 12. Tests
 
 ```
-Test Files  15 passed (15)
-     Tests  137 passed (137)
+Test Files  15 passed
+     Tests  137 passed
 ```
 
-| Tipo | Archivos | Tests | Descripción |
-|------|----------|-------|-------------|
-| Unit (value objects) | 3 | 36 | `EmailAddress`, `LanguageCode`, `CertificateDateRange` |
-| Unit (use cases) | 8 | 51 | Use cases de certificados y notificaciones |
-| Unit (servicio) | 1 | 9 | `CertificateExpirationService` |
-| Unit (use case complejo) | 1 | 8 | `SendCertificateNotificationsUseCase` |
-| Integration | 2 | 33 | REST API de certificados y notificaciones |
-| E2E | 1 | — | Playwright (separado de Vitest) |
+| Tipo | Tests | Qué cubre |
+|---|---|---|
+| Unit — Value Objects | 36 | `EmailAddress`, `LanguageCode`, `CertificateDateRange` |
+| Unit — Use Cases | 51 | Los 9 use cases de certificados y notificaciones |
+| Unit — Servicio | 9 | `CertificateExpirationService` (cálculo de estados) |
+| Unit — Use Case complejo | 8 | `SendCertificateNotificationsUseCase` (cooldowns, flujo cron) |
+| Integration | 33 | API REST completa de certificados y notificaciones |
+| E2E (Playwright) | — | Flujo completo en navegador (separado de Vitest) |
 
-### Estructura de tests
-
-```
-tests/
-├── unit/
-│   ├── domain/
-│   │   ├── valueObjects/
-│   │   │   ├── EmailAddress.test.ts
-│   │   │   ├── LanguageCode.test.ts
-│   │   │   └── CertificateDateRange.test.ts
-│   │   └── usecases/
-│   │       ├── certificates/
-│   │       │   ├── CreateCertificateUseCase.test.ts
-│   │       │   ├── GetCertificatesUseCase.test.ts
-│   │       │   ├── GetCertificateByIdUseCase.test.ts
-│   │       │   ├── UpdateCertificateUseCase.test.ts
-│   │       │   └── UpdateCertificateStatusUseCase.test.ts
-│   │       └── notifications/
-│   │           ├── CreateNotificationUseCase.test.ts
-│   │           ├── GetNotificationsUseCase.test.ts
-│   │           └── GetCertificateNotificationsUseCase.test.ts
-│   └── SendCertificateNotificationsUseCase.test.ts
-├── integration/
-│   ├── certificates.test.ts
-│   └── notifications.test.ts
-└── e2e/
-    └── certificate-management.spec.ts
-src/domain/services/
-└── CertificateExpirationService.test.ts   # colocado junto a la implementación
-```
+**Los tests de integración usan siempre InMemory** (sin PostgreSQL), garantizando ejecución
+rápida (~1 s) y sin dependencias externas. Ver [`docs/002_Testing.md`](docs/002_Testing.md).
 
 ---
 
-## Decisiones de Diseño
+## 13. Documentación técnica
 
-### Persistencia dual
-La aplicación soporta dos modos via `USE_POSTGRES=false/true`:
-- **InMemory**: ideal para desarrollo/tests, sin dependencias externas.
-- **PostgreSQL**: producción, persistencia real.
-
-La inyección de dependencias en `createApp()` garantiza que los use cases desconozcan la implementación real.
-
-### tRPC para el cliente, REST para integración
-El frontend usa tRPC para tipado extremo-a-extremo sin generar clientes. Los REST endpoints conviven para integraciones entre servicios o llamadas desde scripts externos.
-
-### Scheduler no bloquea la respuesta HTTP
-El scheduling de notificaciones corre completamente fuera del ciclo HTTP. Los errores en el envío de emails se registran como notificaciones `ERROR` pero no interrumpen el flujo de creación de certificados.
-
-### Borrado lógico
-Los certificados nunca se eliminan físicamente — solo cambian a `status: DELETED`. Esto preserva el historial de notificaciones asociado y permite auditoría.
-
-### Expiración calculada en tiempo real
-`CertificateExpirationService.calculateExpirationStatus()` recalcula el estado usando `new Date()` en cada llamada. Al crear o actualizar un certificado, el estado se almacena en BD para facilitar los filtros de búsqueda.
-
-### Value Objects para invariantes de dominio
-Las reglas de validación que pertenecen al dominio (`EmailAddress`, `LanguageCode`, `CertificateDateRange`) se encapsulan en Value Objects en lugar de en métodos privados de los use cases. Esto garantiza que la lógica de validación sea reutilizable, testeable de forma aislada e imposible de eludir: si un Value Object se construye con éxito, la invariante está cumplida. Los DTOs de la capa de transporte siguen usando tipos primitivos (`string`) para simplicidad de serialización.
-
-### Bloqueo de login y reintentos en cliente
-La lógica de protección contra fuerza bruta y fallos de conexión vive íntegramente en el cliente (`Login.tsx`), independiente del servidor. Esto evita que el servidor tenga que gestionar estado de sesión de intentos y cumple con las recomendaciones OWASP de no revelar información interna. El bloqueo se persiste en `localStorage` para sobrevivir recargas, y el contador de reintentos de red es independiente del contador de intentos de autenticación: un fallo de red no penaliza el contador de bloqueo.
+| Documento | Contenido |
+|---|---|
+| [`docs/001_ApiDesign.md`](docs/001_ApiDesign.md) | Diseño de la API REST: modelos, endpoints, reglas de negocio |
+| [`docs/002_Testing.md`](docs/002_Testing.md) | Estrategia de testing, configuración Vitest, buenas prácticas |
+| [`docs/003_DatabaseImplementation.md`](docs/003_DatabaseImplementation.md) | Esquema de BD, migraciones, repositorios PostgreSQL |
+| [`docs/003_Localization.md`](docs/003_Localization.md) | Sistema multiidioma: templates JSON, flujo por contacto |
+| [`docs/004_CodeQuality.md`](docs/004_CodeQuality.md) | Correcciones SonarQube, best practices TypeScript aplicadas |
+| [`docs/004_EnvironmentConfiguration.md`](docs/004_EnvironmentConfiguration.md) | Guía completa de variables de entorno |
+| [`docs/005_NotificationSystem.md`](docs/005_NotificationSystem.md) | Arquitectura del scheduler, configuración SMTP, troubleshooting |
+| [`docs/006_AuthIntegration.md`](docs/006_AuthIntegration.md) | Integración con auth_APP: middleware JWT, cookies httpOnly |
+| [`docs/006b_AuthSecurity_AccessRefresh.md`](docs/006b_AuthSecurity_AccessRefresh.md) | Seguridad Access + Refresh Token: comparativa, flujo completo |
+| [`docs/openapi.yaml`](docs/openapi.yaml) | Especificación OpenAPI 3.0 (endpoints REST + esquemas) |
+| [`docs/TESTING_E2E.md`](docs/TESTING_E2E.md) | Guía de tests Playwright E2E |
+| [`adr/`](adr/) | Registro de Decisiones de Arquitectura (ADR) |

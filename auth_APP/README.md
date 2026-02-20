@@ -54,20 +54,20 @@ Implementa **Clean Architecture** / Hexagonal:
 ```mermaid
 graph LR
   subgraph domain["domain/  —  Núcleo (sin dependencias externas)"]
-    E["errors/\nDomainError"]
-    R["repositories/\nIUserRepository · IApplicationRepository"]
-    S["services/\nITokenService · IPasswordHasher · IAuthenticationProvider"]
-    U["usecases/\nLogin · Refresh · Validate · Register\nCRUD usuarios · RoleManagement · VerifyAccess"]
-    VO["value-objects/\nEmail · Password · Username · UserId · AuthProvider · Token"]
+    E["errors/<br/>DomainError"]
+    R["repositories/<br/>IUserRepository · IApplicationRepository"]
+    S["services/<br/>ITokenService · IPasswordHasher · IAuthenticationProvider"]
+    U["usecases/<br/>Login · Refresh · Validate · Register<br/>CRUD usuarios · RoleManagement · VerifyAccess"]
+    VO["value-objects/<br/>Email · Password · Username · UserId · AuthProvider · Token"]
   end
 
   subgraph infra["infrastructure/  —  Adaptadores"]
-    CA["cache/\nMemoryCacheService (LRU + TTL)"]
-    DB["database/\nPostgreSQL · migraciones · seeds"]
-    MW["middleware/\nauthMiddleware · errorHandler"]
-    PE["persistence/\nPostgresUserRepository · InMemoryUserRepository\nPostgresApplicationRepository · InMemoryApplicationRepository"]
-    SE["security/\nJWTService · PasswordHasher\nDatabaseAuthProvider · LDAPAuthProvider"]
-    TR["transport/\nAuthController · AdminController · UserAdminController\nauthRoutes (/auth) · adminRoutes (/admin)"]
+    CA["cache/<br/>MemoryCacheService (LRU + TTL)"]
+    DB["database/<br/>PostgreSQL · migraciones · seeds"]
+    MW["middleware/<br/>authMiddleware · errorHandler"]
+    PE["persistence/<br/>PostgresUserRepository · InMemoryUserRepository<br/>PostgresApplicationRepository · InMemoryApplicationRepository"]
+    SE["security/<br/>JWTService · PasswordHasher<br/>DatabaseAuthProvider · LDAPAuthProvider"]
+    TR["transport/<br/>AuthController · AdminController · UserAdminController<br/>authRoutes (/auth) · adminRoutes (/admin)"]
   end
 
   infra -- implementa --> domain
@@ -81,15 +81,15 @@ graph LR
 
 ```mermaid
 flowchart TD
-    C(["Cliente\nPOST /auth/login"])
+    C(["Cliente<br/>POST /auth/login"])
     C --> L[LoginUseCase]
 
     subgraph providers["Providers — primer éxito gana"]
         direction TB
-        L1["LDAP / AD  servidor 1\n&#40;si ENABLE_LDAP=true&#41;"]
+        L1["LDAP / AD  servidor 1<br/>&#40;si ENABLE_LDAP=true&#41;"]
         L2["LDAP / AD  servidor 2"]
         LN["... más servidores LDAP_SERVERS"]
-        DBA["Database\n&#40;siempre presente como fallback&#41;"]
+        DBA["Database<br/>&#40;siempre presente como fallback&#41;"]
         L1 -->|no disponible / fallo| L2
         L2 -->|no disponible / fallo| LN
         LN -->|no disponible / fallo| DBA
@@ -97,18 +97,18 @@ flowchart TD
 
     L --> L1
 
-    L1 -->|éxito| PG[("PostgreSQL\nsiempre requerida")]
+    L1 -->|éxito| PG[("PostgreSQL<br/>siempre requerida")]
     L2 -->|éxito| PG
     LN -->|éxito| PG
     DBA -->|éxito| PG
 
-    PG --> EX{"¿Usuario\nexiste?"}
-    EX -->|Sí| ROLES["Obtener roles de BD\nsingle-app o multi-app"]
-    EX -->|No + allowLdapSync| CRE["Crear usuario en BD\nsync automático LDAP"]
+    PG --> EX{"¿Usuario<br/>existe?"}
+    EX -->|Sí| ROLES["Obtener roles de BD<br/>single-app o multi-app"]
+    EX -->|"No + allowLdapSync"| CRE["Crear usuario en BD<br/>sync automático LDAP"]
     CRE --> ROLES
 
-    ROLES --> JWT["JWTService.generateTokenPair\n{ userId · username · authProvider · roles }"]
-    JWT --> RESP(["Set-Cookie: accessToken + refreshToken\nhttpOnly · Secure"])
+    ROLES --> JWT["JWTService.generateTokenPair<br/>{ userId · username · authProvider · roles }"]
+    JWT --> RESP(["Set-Cookie: accessToken + refreshToken<br/>httpOnly · Secure"])
 ```
 
 Los tokens se envían en **cookies httpOnly** para evitar exposición a JavaScript del cliente. También se aceptan como `Authorization: Bearer <token>`.

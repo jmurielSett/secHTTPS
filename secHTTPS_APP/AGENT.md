@@ -66,7 +66,17 @@ Los documentos de diseño están numerados secuencialmente con 3 dígitos (`001`
 - **Runtime**: Node.js
 - **Lenguaje**: TypeScript
 - **Framework Web**: Express 5.x
-- **Testing**: Vitest 4.x
+- **API type-safe**: tRPC (implementado — endpoint `/trpc`, coexiste con REST en `/api/certif` y `/api/notif`)
+- **Testing backend**: Vitest 4.x
+- **Testing E2E**: Playwright
+- **Base de datos**: PostgreSQL (con fallback InMemory para tests)
+- **Scheduler**: node-cron (notificaciones automáticas)
+- **Email**: Nodemailer (SMTP configurable)
+
+### Frontend
+- **Framework**: React + Vite
+- **Cliente API**: tRPC React Query
+- **Puerto desarrollo**: 5173
 
 ### Herramientas de Desarrollo
 - **Compilador TypeScript**: tsc

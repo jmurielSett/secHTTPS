@@ -40,7 +40,7 @@ operación se establecen de forma local en el servidor; el repositorio incluye �
 
 - Proceso programado (cron) que se ejecuta diariamente en el servidor, detecta certificados en estado
   `WARNING` o `EXPIRED` y envía alertas por email.
-- Cada contacto responsable recibe el email **en su idioma preferido** (Español, English, Català).
+- Cada contacto responsable recibe el email **en su idioma** (Español, English, Català).
 - Frecuencia adaptada a la urgencia: cada 2 días en `WARNING`, diariamente en `EXPIRED`.
 
 ### Visualización
@@ -54,21 +54,21 @@ operación se establecen de forma local en el servidor; el repositorio incluye �
 
 ```mermaid
 flowchart TD
-    U([Usuario]) -->|Credenciales| L["Login\nauth_APP :4000"]
-    L -->|LDAP corporativo\no usuario local BD| AUTH{"Autenticación\n& Autorización\nRBAC"}
-    AUTH -->|Credenciales incorrectas\nbloqueo por intentos| ERR([Acceso denegado])
-    AUTH -->|Access Token + Refresh Token\ncookies httpOnly| APP
+    U([Usuario]) -->|Credenciales| L["Login<br/>auth_APP :4000"]
+    L -->|"LDAP corporativo<br/>o usuario local BD"| AUTH{"Autenticación<br/>& Autorización<br/>RBAC"}
+    AUTH -->|"Credenciales incorrectas<br/>bloqueo por intentos"| ERR([Acceso denegado])
+    AUTH -->|"Access Token + Refresh Token<br/>cookies httpOnly"| APP
 
     subgraph APP["Zona Segura — secHTTPS_APP :3000"]
-        CERT["Gestión de Certificados\nCRUD · Filtros · Estado de expiración"]
-        NOTIF["Historial de Notificaciones\nfecha · estado · resultado"]
+        CERT["Gestión de Certificados<br/>CRUD · Filtros · Estado de expiración"]
+        NOTIF["Historial de Notificaciones<br/>fecha · estado · resultado"]
     end
 
     APP -->|Valida token en cada petición| AUTH
 
     subgraph BACK["Proceso interno — Servidor"]
-        CRON["Scheduler — cron diario\nENABLE_SCHEDULER=true"]
-        CRON -->|Detecta WARNING / EXPIRED| EMAIL["Email multiidioma\nES · EN · FR · DE\npor responsable"]
+        CRON["Scheduler — cron diario<br/>ENABLE_SCHEDULER=true"]
+        CRON -->|"Detecta WARNING / EXPIRED"| EMAIL["Email multiidioma<br/>ES · EN · CA<br/>por responsable"]
         EMAIL -->|Registra resultado| NOTIF
     end
 ```
@@ -115,7 +115,7 @@ pasos de instalación y arranque.
 
 ---
 
-## Próximas capacidades
+## Estrategías de mejora
 
 - **Frontend de gestión de autenticación**: interfaz de usuario completa para `auth_APP` — gestión
   de usuarios, asignación de roles, consulta de sesiones activas y administración del directorio LDAP,
