@@ -5,7 +5,7 @@
 export class Username {
   private static readonly MIN_LENGTH = 3;
   private static readonly MAX_LENGTH = 50;
-  private static readonly USERNAME_REGEX = /^[a-zA-Z0-9_-]+$/;
+  private static readonly USERNAME_REGEX = /^[a-zA-Z0-9._@\- ]+$/; // AD-compatible: dots, @, hyphens, spaces (e.g. jordi.muriel, jordi@pssjd.local)
 
   private constructor(private readonly value: string) {}
 
@@ -29,7 +29,7 @@ export class Username {
     }
 
     if (!Username.isValid(trimmedUsername)) {
-      throw new Error('Username can only contain letters, numbers, underscores and hyphens');
+      throw new Error('Username contains invalid characters');
     }
 
     return new Username(trimmedUsername);
