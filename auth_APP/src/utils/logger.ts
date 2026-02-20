@@ -54,18 +54,22 @@ export function logError(message: string, err?: Error): void {
 
 /**
  * Logs específicos de autenticación (controlados por LOG_AUTH_ATTEMPTS)
+ * Lee process.env en cada llamada para evitar problemas con el orden de carga de dotenv
  */
 export function authLog(message: string): void {
-  if (LOG_CONFIG.ENABLE_AUTH_LOGS) {
+  const enabled = process.env.LOG_AUTH_ATTEMPTS === 'true' || process.env.NODE_ENV === 'development';
+  if (enabled) {
     console.log(message);
   }
 }
 
 /**
  * Logs específicos de LDAP (controlados por LOG_LDAP_DEBUG)
+ * Lee process.env en cada llamada para evitar problemas con el orden de carga de dotenv
  */
 export function ldapLog(message: string): void {
-  if (LOG_CONFIG.ENABLE_LDAP_LOGS) {
+  const enabled = process.env.LOG_LDAP_DEBUG === 'true' || process.env.NODE_ENV === 'development';
+  if (enabled) {
     console.log(message);
   }
 }

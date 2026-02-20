@@ -16,6 +16,8 @@ export interface LDAPServerConfig {
   bindDN?: string; // Admin DN for search (if required)
   bindPassword?: string; // Admin password for search (if required)
   timeout?: number; // Connection timeout in ms (default: 5000)
+  tlsOptions?: Record<string, any>; // e.g. { rejectUnauthorized: false } for self-signed certs on LDAPS
+  useStartTLS?: boolean; // Upgrade plain LDAP port 389 to TLS via STARTTLS before binding
 }
 
 /**
@@ -121,7 +123,8 @@ export class LDAPAuthenticationProvider implements IAuthenticationProvider {
       const client = context.ldap.createClient({
         url: context.server.url,
         timeout: context.server.timeout || 5000,
-        connectTimeout: context.server.timeout || 5000
+        connectTimeout: context.server.timeout || 5000,
+        ...(context.server.tlsOptions ? { tlsOptions: context.server.tlsOptions } : {})
       });
 
       client.on('error', (err: any) => {
@@ -137,21 +140,38 @@ export class LDAPAuthenticationProvider implements IAuthenticationProvider {
       const bindPassword = context.server.bindDN ? context.server.bindPassword : context.password;
 
       ldapLog(`[${this.name}]   🔐 Binding as: ${context.server.bindDN ? 'admin' : 'user directly'}`);
-      
-      client.bind(bindDN, bindPassword || '', (bindErr: any) => {
-        if (bindErr) {
-          ldapLog(`[${this.name}]   ❌ Bind failed: ${bindErr.message}`);
-          client.unbind();
-          resolve({
-            success: false,
-            error: `LDAP bind failed: ${bindErr.message}`
-          });
-          return;
-        }
 
-        ldapLog(`[${this.name}]   ✅ Bind successful, searching for user...`);
-        this.searchAndAuthenticateUser(client, context, resolve);
-      });
+      const doBind = () => {
+        client.bind(bindDN, bindPassword || '', (bindErr: any) => {
+          if (bindErr) {
+            ldapLog(`[${this.name}]   ❌ Bind failed: ${bindErr.message}`);
+            client.unbind();
+            resolve({
+              success: false,
+              error: `LDAP bind failed: ${bindErr.message}`
+            });
+            return;
+          }
+          ldapLog(`[${this.name}]   ✅ Bind successful, searching for user...`);
+          this.searchAndAuthenticateUser(client, context, resolve);
+        });
+      };
+
+      if (context.server.useStartTLS) {
+        ldapLog(`[${this.name}]   🔒 Upgrading to STARTTLS...`);
+        client.starttls(context.server.tlsOptions || { rejectUnauthorized: false }, [], (tlsErr: any) => {
+          if (tlsErr) {
+            ldapLog(`[${this.name}]   ❌ STARTTLS failed: ${tlsErr.message}`);
+            client.unbind();
+            resolve({ success: false, error: `STARTTLS failed: ${tlsErr.message}` });
+            return;
+          }
+          ldapLog(`[${this.name}]   ✅ STARTTLS established`);
+          doBind();
+        });
+      } else {
+        doBind();
+      }
     });
   }
 
@@ -252,46 +272,87 @@ export class LDAPAuthenticationProvider implements IAuthenticationProvider {
     if (!userPassword || userPassword.length === 0) {
       ldapLog(`[${this.name}]   ❌ Empty or invalid password`);
       searchClient.unbind();
-      resolve({
-        success: false,
-        error: 'Empty password provided'
-      });
+      resolve({ success: false, error: 'Empty password provided' });
       return;
     }
 
     const userClient = context.ldap.createClient({
       url: context.server.url,
-      timeout: context.server.timeout || 5000
+      timeout: context.server.timeout || 5000,
+      ...(context.server.tlsOptions ? { tlsOptions: context.server.tlsOptions } : {})
     });
 
     userClient.on('error', (err: any) => {
       ldapLog(`[${this.name}]   ❌ User client error: ${err.message}`);
     });
 
-    ldapLog(`[${this.name}]   🔗 Binding user: ${userDN}`);
-    userClient.bind(userDN, userPassword, (authErr: any) => {
-      userClient.unbind();
-      searchClient.unbind();
+    // AD supports binding with DN, UPN email, or UPN with domain from baseDN. Try all formats.
+    const upn = userAttributes.userPrincipalName; // e.g. jordi.muriel@sjd.es
+    // Extract domain from baseDN: "dc=pssjd,dc=local" → "pssjd.local"
+    const domainFromBaseDN = context.server.baseDN
+      .split(',')
+      .filter((p: string) => p.trim().toLowerCase().startsWith('dc='))
+      .map((p: string) => p.trim().substring(3))
+      .join('.');
+    const upnDomain = domainFromBaseDN ? `${context.username}@${domainFromBaseDN}` : null; // e.g. jordi.muriel@pssjd.local
 
-      if (authErr) {
-        ldapLog(`[${this.name}]   ❌ User authentication failed: ${authErr.message}`);
-        resolve({
-          success: false,
-          error: 'Invalid LDAP credentials'
-        });
+    const bindTargets: string[] = [];
+    if (upnDomain) bindTargets.push(upnDomain);  // 1st: username@pssjd.local (AD domain)
+    if (upn && upn !== upnDomain) bindTargets.push(upn); // 2nd: UPN email if different
+    bindTargets.push(userDN);                             // 3rd: full DN fallback
+
+    ldapLog(`[${this.name}]   🔗 Binding user (will try ${bindTargets.length} format(s)): ${bindTargets.join(' | ')}`);
+
+    const tryBind = (index: number): void => {
+      if (index >= bindTargets.length) {
+        userClient.unbind();
+        searchClient.unbind();
+        ldapLog(`[${this.name}]   ❌ User authentication failed with all bind formats`);
+        resolve({ success: false, error: 'Invalid LDAP credentials' });
         return;
       }
 
-      ldapLog(`[${this.name}]   ✅ User authenticated successfully!`);
+      const bindTarget = bindTargets[index];
+      ldapLog(`[${this.name}]   🔗 Trying bind format ${index + 1}/${bindTargets.length}: ${bindTarget}`);
 
-      resolve({
-        success: true,
-        username: userAttributes.uid || userAttributes.sAMAccountName || context.username,
-        email: userAttributes.mail || userAttributes.userPrincipalName,
-        userId: userAttributes.uid || context.username,
-        providerDetails: context.server.nameProvider || context.server.url
+      userClient.bind(bindTarget, userPassword, (authErr: any) => {
+        if (authErr) {
+          ldapLog(`[${this.name}]   ⚠️  Bind failed with format ${index + 1}: ${authErr.message}`);
+          tryBind(index + 1);
+          return;
+        }
+
+        userClient.unbind();
+        searchClient.unbind();
+        ldapLog(`[${this.name}]   ✅ User authenticated successfully with format ${index + 1}!`);
+
+        resolve({
+          success: true,
+          username: userAttributes.uid || userAttributes.sAMAccountName || context.username,
+          email: userAttributes.mail || userAttributes.userPrincipalName,
+          userId: userAttributes.uid || context.username,
+          providerDetails: context.server.nameProvider || context.server.url
+        });
       });
-    });
+    };
+
+    // Apply STARTTLS before bind if configured
+    if (context.server.useStartTLS) {
+      ldapLog(`[${this.name}]   🔒 Upgrading user connection to STARTTLS...`);
+      userClient.starttls(context.server.tlsOptions || { rejectUnauthorized: false }, [], (tlsErr: any) => {
+        if (tlsErr) {
+          ldapLog(`[${this.name}]   ❌ User STARTTLS failed: ${tlsErr.message}`);
+          userClient.unbind();
+          searchClient.unbind();
+          resolve({ success: false, error: `STARTTLS failed: ${tlsErr.message}` });
+          return;
+        }
+        ldapLog(`[${this.name}]   ✅ User STARTTLS established`);
+        tryBind(0);
+      });
+    } else {
+      tryBind(0);
+    }
   }
 
   async isAvailable(): Promise<boolean> {
