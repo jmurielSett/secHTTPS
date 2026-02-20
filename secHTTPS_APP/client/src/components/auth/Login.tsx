@@ -26,6 +26,7 @@ export function Login({ onLoginSuccess }: Readonly<LoginProps>) {
   const [showServerError, setShowServerError] = useState(false);
   const [retryCount, setRetryCount] = useState(0);
   const [isRetrying, setIsRetrying] = useState(false);
+  const [ldapErrorMessage, setLdapErrorMessage] = useState<string | undefined>(undefined);
 
   // Estados para rate limiting (bloqueo temporal)
   const [loginAttempts, setLoginAttempts] = useState(0);
@@ -158,6 +159,7 @@ export function Login({ onLoginSuccess }: Readonly<LoginProps>) {
     setRetryCount(0);
     setShowServerError(false);
     setLoginAttempts(0);
+    setLdapErrorMessage(undefined);
     setLockoutUntil(null);
     setTimeRemaining(0);
     localStorage.removeItem('loginLockout');
@@ -194,6 +196,16 @@ export function Login({ onLoginSuccess }: Readonly<LoginProps>) {
       if (attemptsLeft > 0) {
         setError(`Acceso incorrecto.`);
       }
+      throw err;
+    }
+
+    // Error de infraestructura LDAP (no contar como intento de credenciales)
+    if (err.message.startsWith('LDAP_UNAVAILABLE:')) {
+      const ldapMessage = err.message.replace('LDAP_UNAVAILABLE:', '');
+      const newRetryCount = retryCount + 1;
+      setRetryCount(newRetryCount);
+      setLdapErrorMessage(ldapMessage);
+      setShowServerError(true);
       throw err;
     }
     
@@ -244,6 +256,20 @@ export function Login({ onLoginSuccess }: Readonly<LoginProps>) {
       });
 
       if (!response.ok) {
+        // Intentar leer el mensaje de error del servidor
+        let serverMessage = '';
+        try {
+          const errorBody = await response.json();
+          serverMessage = errorBody?.error?.message || errorBody?.message || '';
+        } catch {
+          // Si no se puede parsear el body, usar mensaje genérico
+        }
+
+        // Error de infraestructura LDAP: no es un error de credenciales, es del servidor
+        if (serverMessage.toLowerCase().includes('ldap') || serverMessage.toLowerCase().includes('not reachable')) {
+          throw new Error(`LDAP_UNAVAILABLE:${serverMessage}`);
+        }
+
         // Error de autenticación (credenciales incorrectas)
         handleAuthError(isRetryFromModal);
       }
@@ -357,6 +383,7 @@ export function Login({ onLoginSuccess }: Readonly<LoginProps>) {
           maxRetries={MAX_RETRY_ATTEMPTS}
           onRetry={handleRetry}
           onExit={handleExitAfterMaxRetries}
+          ldapMessage={ldapErrorMessage}
         />
       )}
       

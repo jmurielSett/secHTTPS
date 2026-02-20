@@ -57,6 +57,8 @@ export class LDAPAuthenticationProvider implements IAuthenticationProvider {
     ldapLog(`[${this.name}] 📊 Will try ${this.servers.length} server(s)`);
     
     // Try each LDAP server in order until one succeeds
+    let anyConnectionError = false;
+
     for (let i = 0; i < this.servers.length; i++) {
       const server = this.servers[i];
       ldapLog(`[${this.name}] 🌐 Server ${i + 1}/${this.servers.length}: ${server.url}`);
@@ -68,17 +70,21 @@ export class LDAPAuthenticationProvider implements IAuthenticationProvider {
           return result;
         } else {
           ldapLog(`[${this.name}] ⚠️  Authentication failed on ${server.url}: ${result.error}`);
+          if (result.isConnectionError) {
+            anyConnectionError = true;
+          }
         }
       } catch (err) {
         logError(`[${this.name}] ❌ Exception on ${server.url}: ${err instanceof Error ? err.message : 'Unknown error'}`);
-        // Continue to next server
+        anyConnectionError = true; // exception = connection-level failure
       }
     }
 
     ldapLog(`[${this.name}] ❌ Failed on all ${this.servers.length} server(s)`);
     return {
       success: false,
-      error: `Failed to authenticate against all ${this.servers.length} LDAP server(s)`
+      error: `Failed to authenticate against all ${this.servers.length} LDAP server(s)`,
+      isConnectionError: anyConnectionError
     };
   }
 

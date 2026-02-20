@@ -48,6 +48,17 @@ export function errorHandler(
     return;
   }
 
+  // Error de conectividad LDAP (servidor no disponible)
+  if (err.message.toLowerCase().includes('ldap') && err.message.toLowerCase().includes('not reachable')) {
+    res.status(503).json({
+      error: {
+        code: 'LDAP_UNAVAILABLE',
+        message: err.message
+      }
+    });
+    return;
+  }
+
   if (err.name === 'AuthenticationError' || err.message === 'Invalid credentials') {
     res.status(401).json({
       error: {
