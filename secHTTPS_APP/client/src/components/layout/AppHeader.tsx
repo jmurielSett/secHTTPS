@@ -10,7 +10,7 @@ export function AppHeader({ username, onLogout }: Readonly<AppHeaderProps>) {
     <header className="app-header">
       <div>
         <h1>🔒 SecHTTPS - Certificate Manager</h1>
-        <p>Gestión de certificados SSL/TLS con tRPC</p>
+        <p>Gestión de certificados SSL/TLS - v1.0.0</p>
       </div>
       <div className="user-info">
         <span className="user-badge">👤 {username || 'Usuario'}</span>

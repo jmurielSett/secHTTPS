@@ -19,6 +19,9 @@ de usuario (`admin`, `editor`, `viewer`, `auditor`), ilustrando cómo varía la 
 permisos disponibles según el rol. Sirve como referencia funcional sin necesidad de levantar
 el entorno completo.
 
+La presentación del proyecto está disponible en:
+[**Slides — secHTTPS en Canva**](https://www.canva.com/design/DAHB89s09uU/nObqsEHBVbXngGgEVLAuDg/view?utm_content=DAHB89s09uU&utm_campaign=designshare&utm_medium=link2&utm_source=uniquelinks&utlId=h43eecb6c19)
+
 ---
 
 ## Funcionalidades
