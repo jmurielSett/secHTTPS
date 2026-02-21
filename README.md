@@ -13,6 +13,12 @@ diseñado para instalarse **directamente en los servidores del cliente**. Los pa
 operación se establecen de forma local en el servidor; el repositorio incluye únicamente ficheros
 `.env.example` como guía para una configuración correcta.
 
+El vídeo **`secHTTPS_Funcionalidades.mp4`** incluido en el repositorio ofrece una demostración
+completa del sistema en funcionamiento: recorre las pantallas principales con los distintos perfiles
+de usuario (`admin`, `editor`, `viewer`, `auditor`), ilustrando cómo varía la interfaz y los
+permisos disponibles según el rol. Sirve como referencia funcional sin necesidad de levantar
+el entorno completo.
+
 ---
 
 ## Funcionalidades
@@ -112,6 +118,24 @@ secHTTPS_APP/.env.example  → PostgreSQL, SMTP, cron expression, JWT secrets, U
 
 Ver el README de cada proyecto para la descripción completa de cada variable de entorno y los
 pasos de instalación y arranque.
+
+[`docs/pasos_buenos.md`](docs/pasos_buenos.md) es una guía de referencia rápida para actualizar
+el servidor con nuevos cambios — desde el `git pull` hasta la verificación de los servicios.
+Especialmente útil durante el desarrollo iterativo.
+
+---
+
+## Demostración en vídeo
+
+Dado que la aplicación maneja información crítica de infraestructura, es imperativo que el proyecto
+se distribuya exclusivamente en las instalaciones del cliente para uso exclusivo de este, 
+se incluye el vídeo **`secHTTPS_Funcionalidades.mp4`** como demostración completa del sistema 
+en funcionamiento.
+
+El vídeo recorre las pantallas principales de la aplicación con distintos tipos de usuario
+(`admin`, `editor`, `viewer`), mostrando cómo varía la interfaz y los permisos
+disponibles en función del rol. Sirve como referencia funcional sin necesidad de levantar
+el entorno completo.
 
 ---
 

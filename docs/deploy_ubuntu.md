@@ -464,7 +464,7 @@ curl -sk -o /dev/null -w "%{http_code}" https://scpdsigsam59.pssjd.local:8059/ap
 # 5. Login y comprobación con token
 TOKEN=$(curl -sk -X POST https://scpdsigsam59.pssjd.local:8059/auth/login \
   -H "Content-Type: application/json" \
-  -d '{"username":"admin","password":"Admin123"}' \
+  -d '{"username":"admin","password":"XXXX"}' \
   | grep -o '"accessToken":"[^"]*"' | cut -d'"' -f4)
 
 curl -sk -H "Authorization: Bearer $TOKEN" https://scpdsigsam59.pssjd.local:8059/api/certif
