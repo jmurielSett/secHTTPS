@@ -33,7 +33,7 @@
     "user:create:auditor": "tsx src/scripts/createAuditorUser.ts"
   },
   "dependencies": {
-    "bcrypt": "^5.1.1",
+    "bcrypt": "^6.0.0",
     "cookie-parser": "^1.4.7",
     "cors": "^2.8.6",
     "dotenv": "^17.3.1",
