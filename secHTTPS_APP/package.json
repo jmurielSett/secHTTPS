@@ -18,7 +18,7 @@
     "dev:server": "tsx --watch src/server.ts",
     "dev:client": "vite",
     "build": "npm run build:server && npm run build:client",
-    "build:server": "tsc",
+    "build:server": "tsc && node -e \"const fs=require('fs'); fs.cpSync('./src/infrastructure/localization/templates', './dist/infrastructure/localization/templates', {recursive:true}); console.log('Templates copied to dist/');\"",
     "build:client": "tsc -b client/tsconfig.json && vite build",
     "start": "node dist/server.js",
     "test": "vitest",
