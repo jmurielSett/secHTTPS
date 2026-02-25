@@ -18,14 +18,15 @@ export class NodemailerEmailService implements IEmailService {
     this.systemName = process.env.SYSTEM_NAME || 'SecHTTPS Monitor';
 
     // Configurar transporter con configuración SMTP
+    const smtpUser = process.env.SMTP_USER;
+    const smtpPassword = process.env.SMTP_PASSWORD;
+    const useAuth = smtpUser && smtpPassword;
+
     this.transporter = nodemailer.createTransport({
       host: process.env.SMTP_HOST!,
       port: Number.parseInt(process.env.SMTP_PORT || '587'),
       secure: process.env.SMTP_SECURE === 'true', // true para puerto 465, false para otros
-      auth: {
-        user: process.env.SMTP_USER!,
-        pass: process.env.SMTP_PASSWORD!
-      },
+      ...(useAuth ? { auth: { user: smtpUser, pass: smtpPassword } } : {}),
       // Opciones adicionales
       connectionTimeout: 10000, // 10 segundos
       greetingTimeout: 10000,
@@ -38,13 +39,20 @@ export class NodemailerEmailService implements IEmailService {
    * @throws Error si falta alguna configuración crítica
    */
   private validateConfig(): void {
-    const requiredVars = ['SMTP_HOST', 'SMTP_USER', 'SMTP_PASSWORD'];
+    const requiredVars = ['SMTP_HOST', 'SMTP_FROM'];
     const missing = requiredVars.filter(varName => !process.env[varName]);
 
     if (missing.length > 0) {
       throw new Error(
         `Configuración SMTP incompleta. Variables faltantes: ${missing.join(', ')}`
       );
+    }
+
+    // SMTP_USER y SMTP_PASSWORD son opcionales (relay sin autenticación)
+    const hasUser = !!process.env.SMTP_USER;
+    const hasPassword = !!process.env.SMTP_PASSWORD;
+    if (hasPassword && !hasUser) {
+      throw new Error('SMTP_PASSWORD configurado pero falta SMTP_USER');
     }
   }
 
