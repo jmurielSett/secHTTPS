@@ -10,7 +10,7 @@ export enum CertificateStatus {
  */
 export interface ResponsibleContact {
   email: string;
-  language: string;  // ISO 639-1 language code: 'es', 'en', 'fr', 'de', etc.
+  language: string;  // ISO 639-1 language code: 'es', 'en', 'ca'
   name?: string;     // Optional: contact name for personalization
 }
 

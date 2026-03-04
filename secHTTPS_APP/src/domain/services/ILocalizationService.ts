@@ -6,8 +6,7 @@ import { Certificate } from '../../types/certificate';
 export enum SupportedLanguage {
   ES = 'es',
   EN = 'en',
-  FR = 'fr',
-  DE = 'de'
+  CA = 'ca'
 }
 
 /**

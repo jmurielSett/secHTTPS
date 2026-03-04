@@ -20,14 +20,9 @@ describe('LanguageCode', () => {
     expect(lang.getValue()).toBe(SupportedLanguage.EN);
   });
 
-  it('debería crear LanguageCode para "fr"', () => {
-    const lang = LanguageCode.create('fr');
-    expect(lang.getValue()).toBe(SupportedLanguage.FR);
-  });
-
-  it('debería crear LanguageCode para "de"', () => {
-    const lang = LanguageCode.create('de');
-    expect(lang.getValue()).toBe(SupportedLanguage.DE);
+  it('debería crear LanguageCode para "ca"', () => {
+    const lang = LanguageCode.create('ca');
+    expect(lang.getValue()).toBe(SupportedLanguage.CA);
   });
 
   it('debería normalizar a minúsculas ("ES" → "es")', () => {

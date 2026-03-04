@@ -217,11 +217,21 @@ export class LDAPAuthenticationProvider implements IAuthenticationProvider {
 
       searchRes.on('searchEntry', (entry: any) => {
         foundCount++;
-        userDN = String(entry.objectName || entry.dn || '');
+        // entry.objectName in ldapjs v2/v3 with AD may be an LdapDn object, not a plain string.
+        // Use .toString() which LdapDn implements, or fall back to entry.dn.
+        const rawDn = entry.objectName ?? entry.dn ?? '';
+        userDN = (typeof rawDn === 'string') ? rawDn
+               : (typeof rawDn.toString === 'function') ? rawDn.toString()
+               : String(rawDn);
+        // Strip any ldapjs wrapper prefix like "DN [LdapDn] " if present
+        if (userDN && (userDN.startsWith('DN [') || userDN === '{}' || userDN === '[object Object]')) {
+          // Try pojo or other representations
+          userDN = entry.dn?.toString?.() ?? entry.objectName?.format?.() ?? '';
+        }
         userAttributes = this.extractUserAttributes(entry);
         
         ldapLog(`[${this.name}]   ✅ Found user: ${userDN}`);
-        ldapLog(`[${this.name}]   📧 Email: ${userAttributes.mail || 'not found'}`);
+        ldapLog(`[${this.name}]   📧 Email: ${userAttributes.mail || userAttributes.userPrincipalName || 'not found'}`);
       });
 
       searchRes.on('end', () => {
@@ -249,24 +259,41 @@ export class LDAPAuthenticationProvider implements IAuthenticationProvider {
   }
 
   /**
-   * Extracts user attributes from LDAP entry
+   * Extracts user attributes from LDAP entry.
+   * Handles both ldapjs v2 (entry.object) and v3 (entry.attributes array)
+   * and Active Directory responses where entry.object may be an empty/stub object.
    */
   private extractUserAttributes(entry: any): any {
-    if (entry.object) {
-      return entry.object;
-    }
-    
-    if (Array.isArray(entry.attributes)) {
-      const attributes: any = {};
+    const attrs: any = {};
+
+    // 1. Try entry.attributes array (ldapjs v2/v3 with AD)
+    if (Array.isArray(entry.attributes) && entry.attributes.length > 0) {
       entry.attributes.forEach((attr: any) => {
-        if (attr.type && attr.values && attr.values.length > 0) {
-          attributes[attr.type] = attr.values[0];
+        const key   = attr.type || attr.name;
+        // ldapjs may store values as attr.values, attr.vals, or attr._vals
+        const vals  = attr.values ?? attr.vals ?? attr._vals ?? [];
+        if (key && Array.isArray(vals) && vals.length > 0) {
+          attrs[key] = vals[0];
+        } else if (key && typeof attr.value === 'string') {
+          attrs[key] = attr.value;
         }
       });
-      return attributes;
     }
-    
-    return entry.attributes || {};
+
+    // 2. Overlay with entry.object if it has real keys (ldapjs v2 populated object)
+    if (entry.object && typeof entry.object === 'object') {
+      const objKeys = Object.keys(entry.object).filter(k => k !== 'controls');
+      if (objKeys.length > 0) {
+        objKeys.forEach(k => { attrs[k] = entry.object[k]; });
+      }
+    }
+
+    // 3. Fallback: entry.pojo (ldapjs v3)
+    if (Object.keys(attrs).length === 0 && entry.pojo) {
+      return entry.pojo;
+    }
+
+    return attrs;
   }
 
   /**
@@ -300,7 +327,7 @@ export class LDAPAuthenticationProvider implements IAuthenticationProvider {
     });
 
     // AD supports binding with DN, UPN email, or UPN with domain from baseDN. Try all formats.
-    const upn = userAttributes.userPrincipalName; // e.g. jordi.muriel@sjd.es
+    const upn = userAttributes.userPrincipalName; // e.g. jordi.muriel@sjd.es (del AD)
     // Extract domain from baseDN: "dc=pssjd,dc=local" → "pssjd.local"
     const domainFromBaseDN = context.server.baseDN
       .split(',')
@@ -310,9 +337,14 @@ export class LDAPAuthenticationProvider implements IAuthenticationProvider {
     const upnDomain = domainFromBaseDN ? `${context.username}@${domainFromBaseDN}` : null; // e.g. jordi.muriel@pssjd.local
 
     const bindTargets: string[] = [];
-    if (upnDomain) bindTargets.push(upnDomain);  // 1st: username@pssjd.local (AD domain)
-    if (upn && upn !== upnDomain) bindTargets.push(upn); // 2nd: UPN email if different
-    bindTargets.push(userDN);                             // 3rd: full DN fallback
+    // 1st: UPN real del AD (userPrincipalName) - el más fiable si se ha extraído correctamente
+    if (upn && typeof upn === 'string' && upn.includes('@')) bindTargets.push(upn);
+    // 2nd: UPN derivado del baseDN (si difiere del anterior)
+    if (upnDomain && upnDomain !== upn) bindTargets.push(upnDomain);
+    // 3rd: DN completo del usuario (fallback)
+    if (userDN && userDN.includes('=')) bindTargets.push(userDN);
+    // Garantía mínima si todo falla (sin UPN ni DN válido)
+    if (bindTargets.length === 0 && upnDomain) bindTargets.push(upnDomain);
 
     ldapLog(`[${this.name}]   🔗 Binding user (will try ${bindTargets.length} format(s)): ${bindTargets.join(' | ')}`);
 
@@ -338,17 +370,23 @@ export class LDAPAuthenticationProvider implements IAuthenticationProvider {
       userClient.bind(bindTarget, userPassword, (authErr: any) => {
         if (authErr) {
           ldapLog(`[${this.name}]   ⚠️  Bind failed with format ${index + 1}: ${authErr.message}`);
-          // Track whether this was a connection error vs a real credential failure (LDAP code 49)
           const isCredentialError = authErr.name === 'InvalidCredentialsError' ||
             authErr.code === 49 ||
             /invalid credentials|AcceptSecurityContext/i.test(authErr.message);
           if (isCredentialError) {
-            // Real wrong-password error: don't mark as connection error, stop trying other formats
-            anyUserConnectionError = false;
-            userClient.unbind();
-            searchClient.unbind();
-            ldapLog(`[${this.name}]   ❌ Invalid user credentials (code 49)`);
-            resolve({ success: false, error: 'Invalid LDAP credentials', isConnectionError: false });
+            // AD returns code 49 both for wrong password AND for unrecognized UPN format.
+            // Only stop if this is the LAST format to try — otherwise continue with next format.
+            const isLastFormat = index >= bindTargets.length - 1;
+            if (isLastFormat) {
+              anyUserConnectionError = false;
+              userClient.unbind();
+              searchClient.unbind();
+              ldapLog(`[${this.name}]   ❌ Invalid user credentials on all formats (code 49)`);
+              resolve({ success: false, error: 'Invalid LDAP credentials', isConnectionError: false });
+              return;
+            }
+            ldapLog(`[${this.name}]   ↩️  code 49 on format ${index + 1} — trying next format (may be unrecognized UPN)`);
+            tryBind(index + 1);
             return;
           }
           anyUserConnectionError = true;
