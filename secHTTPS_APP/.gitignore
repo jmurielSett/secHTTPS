@@ -11,6 +11,9 @@ client/dist/
 .env.local
 .env.*.local
 
+# Configuraciones privadas por entorno
+privado/
+
 # Logs
 logs
 *.log

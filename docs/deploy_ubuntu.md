@@ -389,15 +389,38 @@ npm install -g pm2
 
 ### 10.2 Arrancar ambas apps
 
-```bash
-# auth_APP (ya compilada en el paso 8.2)
-cd /opt/secHTTPS/auth_APP
-pm2 start dist/server.js --name auth_APP
+#### Opción A — ecosystem.config.js (recomendado)
 
-# secHTTPS_APP (ya compilada en el paso 9.2)
-cd /opt/secHTTPS/secHTTPS_APP
-pm2 start dist/server.js --name secHTTPS_server
+El `ecosystem.config.js` de la raíz del repo fija el `cwd` de cada app explícitamente,
+por lo que `dotenv` siempre encontrará el `.env` correcto sin importar desde qué
+directorio se ejecute PM2:
+
+```bash
+cd /opt/secHTTPS
+sudo pm2 start ecosystem.config.js
 ```
+
+#### Opción B — rutas absolutas con --cwd explícito (alternativa)
+
+Se puede lanzar desde cualquier directorio usando rutas absolutas **y** declarando
+el `--cwd` de forma explícita. PM2 NO deduce el `cwd` a partir de la ruta del script;
+si no se indica, usa el directorio activo del terminal en el momento del comando:
+
+```bash
+sudo pm2 start /opt/secHTTPS/auth_APP/dist/server.js \
+  --name auth_APP \
+  --cwd /opt/secHTTPS/auth_APP
+
+sudo pm2 start /opt/secHTTPS/secHTTPS_APP/dist/server.js \
+  --name secHTTPS_server \
+  --cwd /opt/secHTTPS/secHTTPS_APP
+```
+
+> **⚠️ Error común:** usar solo la ruta absoluta del script **sin `--cwd`** produce el
+> mismo problema que lanzarlo desde el directorio equivocado — PM2 guarda el directorio
+> activo del terminal como `cwd` y `dotenv` no encuentra el `.env`, lo que causa:
+> `JWT secrets must be defined in environment variables`.
+> Verificar siempre con `sudo pm2 show auth_APP | grep cwd` tras el arranque.
 
 ### 10.3 Activar inicio automático con el sistema
 
