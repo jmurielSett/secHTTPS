@@ -18,6 +18,7 @@ interface UserConfig {
   password: string;
   applicationName: string;
   roleName: string;
+  language?: string;
 }
 
 async function createUser(config: UserConfig): Promise<void> {
@@ -51,8 +52,8 @@ async function createUser(config: UserConfig): Promise<void> {
     const passwordHash = await passwordHasher.hash(config.password);
 
     const userResult = await pool.query(
-      "INSERT INTO users (username, email, password_hash, auth_provider) VALUES ($1, $2, $3, 'DATABASE') RETURNING id",
-      [config.username, config.email, passwordHash]
+      "INSERT INTO users (username, email, password_hash, auth_provider, language) VALUES ($1, $2, $3, 'DATABASE', $4) RETURNING id",
+      [config.username, config.email, passwordHash, config.language ?? 'ca']
     );
 
     const userId = userResult.rows[0].id;
@@ -87,7 +88,8 @@ const config: UserConfig = {
   email: 'editor@sechttps.local',
   password: 'Editor123',
   applicationName: 'secHTTPS_APP',
-  roleName: 'editor' // Can create, read, update certificates
+  roleName: 'editor', // Can create, read, update certificates
+  language: 'ca'
 };
 
 console.log('🚀 Creating Editor User for secHTTPS_APP\n');

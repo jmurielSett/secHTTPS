@@ -52,7 +52,7 @@ export async function createApp(usePostgres: boolean = false): Promise<AppContex
   app.use(cors({
     origin: allowedOrigins,
     credentials: true, // CRITICAL: Allow cookies to be sent/received
-    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization'],
   }));
   
@@ -112,6 +112,7 @@ export async function createApp(usePostgres: boolean = false): Promise<AppContex
       username: process.env.ADMIN_USERNAME || 'admin',
       passwordHash: hashedPassword,
       role: UserRole.ADMIN,
+      language: 'ca',
       createdAt: new Date().toISOString()
     });
     

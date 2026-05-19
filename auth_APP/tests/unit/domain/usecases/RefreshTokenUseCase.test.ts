@@ -14,7 +14,8 @@ describe('RefreshTokenUseCase', () => {
     username: 'admin',
     email: 'admin@auth.com',
     passwordHash: 'hashed',
-    createdAt: '2026-01-01T00:00:00.000Z'
+    createdAt: '2026-01-01T00:00:00.000Z',
+        language: 'ca'
   };
 
   const newTokenPair = { accessToken: 'new-access', refreshToken: 'new-refresh' };
@@ -49,7 +50,8 @@ describe('RefreshTokenUseCase', () => {
         applicationName: 'secHTTPS_APP',
         roles: ['admin'],
         authProvider: 'DATABASE',
-        type: 'refresh'
+        type: 'refresh',
+        lang: 'ca'
       };
 
       vi.mocked(mockTokenService.verifyRefreshToken).mockReturnValue(payload);
@@ -75,7 +77,8 @@ describe('RefreshTokenUseCase', () => {
         userId: '1',
         username: 'admin',
         applicationName: 'secHTTPS_APP',
-        type: 'refresh'
+        type: 'refresh',
+        lang: 'ca'
       };
 
       vi.mocked(mockTokenService.verifyRefreshToken).mockReturnValue(payload);
@@ -94,6 +97,7 @@ describe('RefreshTokenUseCase', () => {
         userId: '1',
         username: 'admin',
         authProvider: 'DATABASE',
+        lang: 'ca',
         type: 'refresh'
         // no applicationName → multi-app
       };
@@ -124,7 +128,8 @@ describe('RefreshTokenUseCase', () => {
       const payload: TokenPayload = {
         userId: '1',
         username: 'admin',
-        type: 'refresh'
+        type: 'refresh',
+        lang: 'ca'
       };
 
       vi.mocked(mockTokenService.verifyRefreshToken).mockReturnValue(payload);
@@ -153,7 +158,8 @@ describe('RefreshTokenUseCase', () => {
         userId: '999',
         username: 'ghost',
         applicationName: 'secHTTPS_APP',
-        type: 'refresh'
+        type: 'refresh',
+        lang: 'ca'
       };
 
       vi.mocked(mockTokenService.verifyRefreshToken).mockReturnValue(payload);
@@ -172,7 +178,8 @@ describe('RefreshTokenUseCase', () => {
         username: 'admin',
         applicationName: 'secHTTPS_APP',
         authProvider: 'DATABASE',
-        type: 'refresh'
+        type: 'refresh',
+        lang: 'ca'
       };
 
       vi.mocked(mockTokenService.verifyRefreshToken).mockReturnValue(payload);

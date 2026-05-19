@@ -24,6 +24,8 @@ servers:
 tags:
   - name: auth
     description: Autenticación y gestión de sesión
+  - name: users
+    description: Gestión del propio perfil (propio usuario o admin)
   - name: admin-roles
     description: Gestión de roles RBAC (requiere rol admin)
   - name: admin-users
@@ -258,6 +260,84 @@ paths:
                 $ref: '#/components/schemas/UserResponse'
         '400':
           description: Datos inválidos o usuario ya existente
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  # ---------------------------------------------------------------------------
+  # User self-service
+  # ---------------------------------------------------------------------------
+
+  /auth/users/{id}/language:
+    patch:
+      tags:
+        - users
+      summary: Actualizar idioma preferido
+      description: |
+        Actualiza el idioma preferido del usuario y re-emite un nuevo par de tokens
+        con el claim `lang` actualizado.
+
+        **Autorización**: el propio usuario puede cambiar su idioma; los administradores
+        pueden cambiarlo a cualquier usuario.
+
+        Idiomas disponibles: `ca` (catalán, por defecto) y `es` (castellano).
+      operationId: updateLanguage
+      security:
+        - cookieAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: ID del usuario cuyo idioma se quiere actualizar
+          schema:
+            type: string
+          example: "42"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateLanguageInput'
+            example:
+              language: es
+      responses:
+        '200':
+          description: Idioma actualizado. Cookies renovadas con el nuevo claim `lang`.
+          headers:
+            Set-Cookie:
+              description: |
+                Cookies `accessToken` y `refreshToken` renovadas con `lang` actualizado
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UpdateLanguageResponse'
+        '400':
+          description: Campo `language` ausente o valor no permitido
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error:
+                  code: VALIDATION_ERROR
+                  message: "Language must be one of: ca, es"
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          description: El usuario intenta cambiar el idioma de otro usuario sin ser admin
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error:
+                  code: FORBIDDEN
+                  message: Access denied
+        '404':
+          description: Usuario no encontrado
           content:
             application/json:
               schema:
@@ -709,6 +789,11 @@ components:
         username:
           type: string
           example: jperez
+        lang:
+          type: string
+          description: Idioma preferido del usuario (`ca` o `es`)
+          enum: [ca, es]
+          example: ca
         email:
           type: string
           format: email
@@ -769,6 +854,12 @@ components:
           type: string
           enum: [admin, editor, auditor, viewer]
           example: editor
+        language:
+          type: string
+          description: Idioma preferido del usuario. Por defecto `ca`.
+          enum: [ca, es]
+          default: ca
+          example: ca
 
     UpdateUserInput:
       type: object
@@ -786,6 +877,11 @@ components:
           type: string
           enum: [admin, editor, auditor, viewer]
           example: auditor
+        language:
+          type: string
+          description: Idioma preferido
+          enum: [ca, es]
+          example: es
 
     User:
       type: object
@@ -812,6 +908,11 @@ components:
             - `DATABASE`: usuario local con contraseña propia.
             - URL LDAP (p. ej. `ldap://192.168.1.8:389`): usuario sincronizado desde LDAP.
           example: DATABASE
+        language:
+          type: string
+          description: Idioma preferido del usuario
+          enum: [ca, es]
+          example: ca
         createdAt:
           type: string
           format: date-time
@@ -848,6 +949,36 @@ components:
         applicationName:
           type: string
           example: secHTTPS_APP
+
+    UpdateLanguageInput:
+      type: object
+      required:
+        - language
+      properties:
+        language:
+          type: string
+          description: Nuevo idioma preferido
+          enum: [ca, es]
+          example: es
+
+    UpdateLanguageResponse:
+      type: object
+      properties:
+        message:
+          type: string
+          example: Idioma actualizado
+        language:
+          type: string
+          enum: [ca, es]
+          example: es
+        accessToken:
+          type: string
+          description: Nuevo access token con `lang` actualizado (también en cookie)
+          example: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+        refreshToken:
+          type: string
+          description: Nuevo refresh token (también en cookie)
+          example: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
 
     SuccessMessage:
       type: object

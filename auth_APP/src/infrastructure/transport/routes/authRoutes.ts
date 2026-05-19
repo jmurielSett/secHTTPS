@@ -8,9 +8,11 @@ import {
     LoginUseCase,
     RefreshTokenUseCase,
     RegisterUserUseCase,
+    UpdateLanguageUseCase,
     ValidateTokenUseCase
 } from '../../../domain/usecases';
 import { logInfo } from '../../../utils/logger';
+import { authenticateToken } from '../../middleware/authMiddleware';
 import { InMemoryApplicationRepository } from '../../persistence/InMemoryApplicationRepository';
 import { PostgresApplicationRepository } from '../../persistence/PostgresApplicationRepository';
 import { DatabaseAuthenticationProvider } from '../../security/DatabaseAuthenticationProvider';
@@ -85,12 +87,18 @@ export function createAuthRouter(
     passwordHasher
   );
 
+  const updateLanguageUseCase = new UpdateLanguageUseCase(
+    userRepository,
+    tokenService
+  );
+
   // Crear controller con los casos de uso
   const authController = new AuthController(
     loginUseCase,
     refreshTokenUseCase,
     validateTokenUseCase,
-    registerUserUseCase
+    registerUserUseCase,
+    updateLanguageUseCase
   );
 
   // Definir rutas
@@ -99,6 +107,7 @@ export function createAuthRouter(
   router.post('/validate', (req, res, next) => authController.validate(req, res, next));
   router.post('/register', (req, res, next) => authController.register(req, res, next));
   router.post('/logout', (req, res, next) => authController.logout(req, res, next));
+  router.patch('/users/:id/language', authenticateToken, (req, res, next) => authController.updateLanguage(req, res, next));
 
   return router;
 }

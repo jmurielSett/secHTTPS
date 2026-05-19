@@ -16,7 +16,8 @@
   "main": "dist/server.js",
   "scripts": {
     "dev": "tsx --watch src/server.ts",
-    "build": "tsc -p tsconfig.build.json",
+    "build": "tsc -p tsconfig.build.json && npm run build:copy-sql",
+    "build:copy-sql": "node -e \"const fs=require('fs');const path=require('path');const src='src/infrastructure/database/migrations';const dst='dist/infrastructure/database/migrations';fs.mkdirSync(dst,{recursive:true});fs.readdirSync(src).filter(f=>f.endsWith('.sql')).forEach(f=>fs.copyFileSync(path.join(src,f),path.join(dst,f)));\"",
     "start": "node dist/server.js",
     "test": "vitest run",
     "test:unit": "vitest run tests/unit",

@@ -32,14 +32,16 @@ describe('GetUsersUseCase', () => {
           username: 'admin',
           email: 'admin@example.com',
           passwordHash: 'hashed_password_1',
-          createdAt: '2026-01-01T00:00:00.000Z'
+          createdAt: '2026-01-01T00:00:00.000Z',
+        language: 'ca'
         },
         {
           id: 2,
           username: 'user',
           email: 'user@example.com',
           passwordHash: 'hashed_password_2',
-          createdAt: '2026-01-02T00:00:00.000Z'
+          createdAt: '2026-01-02T00:00:00.000Z',
+        language: 'ca'
         }
       ];
 
@@ -55,7 +57,8 @@ describe('GetUsersUseCase', () => {
         username: 'admin',
         email: 'admin@example.com',
         passwordHash: undefined,
-        createdAt: '2026-01-01T00:00:00.000Z'
+        createdAt: '2026-01-01T00:00:00.000Z',
+        language: 'ca'
       });
     });
 
@@ -83,7 +86,8 @@ describe('GetUsersUseCase', () => {
           username: 'testuser',
           email: 'test@example.com',
           passwordHash: 'secret_hash',
-          createdAt: '2026-02-15T10:00:00.000Z'
+          createdAt: '2026-02-15T10:00:00.000Z',
+        language: 'ca'
         }
       ];
 
@@ -106,7 +110,8 @@ describe('GetUsersUseCase', () => {
         username: `user${i}`,
         email: `user${i}@example.com`,
         passwordHash: `hash${i}`,
-        createdAt: '2026-01-01T00:00:00.000Z'
+        createdAt: '2026-01-01T00:00:00.000Z',
+        language: 'ca'
       }));
 
       vi.mocked(mockUserRepository.findAll).mockResolvedValue(manyUsers);
@@ -126,21 +131,24 @@ describe('GetUsersUseCase', () => {
           username: 'user1',
           email: 'user1@example.com',
           passwordHash: 'hash1',
-          createdAt: '2026-01-01T00:00:00.000Z'
+          createdAt: '2026-01-01T00:00:00.000Z',
+        language: 'ca'
         },
         {
           id: 2,
           username: 'user2',
           email: 'user2@example.com',
           passwordHash: 'hash2',
-          createdAt: '2026-01-02T00:00:00.000Z'
+          createdAt: '2026-01-02T00:00:00.000Z',
+        language: 'ca'
         },
         {
           id: 3,
           username: 'user3',
           email: 'user3@example.com',
           passwordHash: 'hash3',
-          createdAt: '2026-01-03T00:00:00.000Z'
+          createdAt: '2026-01-03T00:00:00.000Z',
+        language: 'ca'
         }
       ];
 

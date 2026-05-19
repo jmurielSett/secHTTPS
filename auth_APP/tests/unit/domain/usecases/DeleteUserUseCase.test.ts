@@ -32,7 +32,8 @@ describe('DeleteUserUseCase', () => {
         username: 'usertodelete',
         email: 'delete@example.com',
         passwordHash: 'hash',
-        createdAt: '2026-01-01T00:00:00.000Z'
+        createdAt: '2026-01-01T00:00:00.000Z',
+        language: 'ca'
       };
 
       vi.mocked(mockUserRepository.findById).mockResolvedValue(existingUser);
@@ -50,7 +51,8 @@ describe('DeleteUserUseCase', () => {
         username: 'user42',
         email: 'user42@example.com',
         passwordHash: 'hash',
-        createdAt: '2026-01-01T00:00:00.000Z'
+        createdAt: '2026-01-01T00:00:00.000Z',
+        language: 'ca'
       };
 
       vi.mocked(mockUserRepository.findById).mockResolvedValue(user);
@@ -68,7 +70,8 @@ describe('DeleteUserUseCase', () => {
         username: 'testuser',
         email: 'test@example.com',
         passwordHash: 'hash',
-        createdAt: '2026-01-01T00:00:00.000Z'
+        createdAt: '2026-01-01T00:00:00.000Z',
+        language: 'ca'
       };
 
       vi.mocked(mockUserRepository.findById).mockResolvedValue(user);
@@ -85,7 +88,8 @@ describe('DeleteUserUseCase', () => {
         username: 'numeric',
         email: 'numeric@example.com',
         passwordHash: 'hash',
-        createdAt: '2026-01-01T00:00:00.000Z'
+        createdAt: '2026-01-01T00:00:00.000Z',
+        language: 'ca'
       };
 
       vi.mocked(mockUserRepository.findById).mockResolvedValue(user);
@@ -104,7 +108,8 @@ describe('DeleteUserUseCase', () => {
         username: 'uuiduser',
         email: 'uuid@example.com',
         passwordHash: 'hash',
-        createdAt: '2026-01-01T00:00:00.000Z'
+        createdAt: '2026-01-01T00:00:00.000Z',
+        language: 'ca'
       };
 
       vi.mocked(mockUserRepository.findById).mockResolvedValue(user);
@@ -158,7 +163,8 @@ describe('DeleteUserUseCase', () => {
         username: 'user',
         email: 'user@example.com',
         passwordHash: 'hash',
-        createdAt: '2026-01-01T00:00:00.000Z'
+        createdAt: '2026-01-01T00:00:00.000Z',
+        language: 'ca'
       };
 
       vi.mocked(mockUserRepository.findById).mockResolvedValue(user);
@@ -174,7 +180,8 @@ describe('DeleteUserUseCase', () => {
         username: 'user20',
         email: 'user20@example.com',
         passwordHash: 'hash',
-        createdAt: '2026-01-01T00:00:00.000Z'
+        createdAt: '2026-01-01T00:00:00.000Z',
+        language: 'ca'
       };
 
       vi.mocked(mockUserRepository.findById).mockResolvedValue(user);
@@ -195,7 +202,8 @@ describe('DeleteUserUseCase', () => {
         username: 'faildelete',
         email: 'fail@example.com',
         passwordHash: 'hash',
-        createdAt: '2026-01-01T00:00:00.000Z'
+        createdAt: '2026-01-01T00:00:00.000Z',
+        language: 'ca'
       };
 
       vi.mocked(mockUserRepository.findById).mockResolvedValue(user);
@@ -220,7 +228,8 @@ describe('DeleteUserUseCase', () => {
         username: 'erroruser',
         email: 'error@example.com',
         passwordHash: 'hash',
-        createdAt: '2026-01-01T00:00:00.000Z'
+        createdAt: '2026-01-01T00:00:00.000Z',
+        language: 'ca'
       };
 
       vi.mocked(mockUserRepository.findById).mockResolvedValue(user);
@@ -237,7 +246,8 @@ describe('DeleteUserUseCase', () => {
         username: 'timeoutuser',
         email: 'timeout@example.com',
         passwordHash: 'hash',
-        createdAt: '2026-01-01T00:00:00.000Z'
+        createdAt: '2026-01-01T00:00:00.000Z',
+        language: 'ca'
       };
 
       vi.mocked(mockUserRepository.findById).mockResolvedValue(user);
@@ -254,7 +264,8 @@ describe('DeleteUserUseCase', () => {
         username: 'concurrent',
         email: 'concurrent@example.com',
         passwordHash: 'hash',
-        createdAt: '2026-01-01T00:00:00.000Z'
+        createdAt: '2026-01-01T00:00:00.000Z',
+        language: 'ca'
       };
 
       vi.mocked(mockUserRepository.findById).mockResolvedValue(user);
@@ -283,7 +294,8 @@ describe('DeleteUserUseCase', () => {
         username: 'specialuser',
         email: 'special@example.com',
         passwordHash: 'hash',
-        createdAt: '2026-01-01T00:00:00.000Z'
+        createdAt: '2026-01-01T00:00:00.000Z',
+        language: 'ca'
       };
 
       vi.mocked(mockUserRepository.findById).mockResolvedValue(user);

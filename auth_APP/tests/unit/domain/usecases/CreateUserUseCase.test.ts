@@ -47,7 +47,8 @@ describe('CreateUserUseCase', () => {
         username: 'adminuser',
         email: 'admin@example.com',
         passwordHash: hashedPassword,
-        createdAt: '2026-02-15T12:00:00.000Z'
+        createdAt: '2026-02-15T12:00:00.000Z',
+        language: 'ca'
       };
 
       vi.mocked(mockUserRepository.findByUsername).mockResolvedValue(null);
@@ -62,7 +63,8 @@ describe('CreateUserUseCase', () => {
         username: 'adminuser',
         email: 'admin@example.com',
         passwordHash: undefined,
-        createdAt: '2026-02-15T12:00:00.000Z'
+        createdAt: '2026-02-15T12:00:00.000Z',
+        language: 'ca'
       });
       expect(mockUserRepository.findByUsername).toHaveBeenCalledWith('adminuser');
       expect(mockUserRepository.findByEmail).toHaveBeenCalledWith('admin@example.com');
@@ -84,7 +86,8 @@ describe('CreateUserUseCase', () => {
         username: 'manager',
         email: 'manager@example.com',
         passwordHash: 'hashed',
-        createdAt: '2026-02-15T12:00:00.000Z'
+        createdAt: '2026-02-15T12:00:00.000Z',
+        language: 'ca'
       });
 
       const result = await useCase.execute(input);
@@ -110,7 +113,8 @@ describe('CreateUserUseCase', () => {
         username: 'editor',
         email: 'editor@example.com',
         passwordHash: hashedPassword,
-        createdAt: '2026-02-15T12:00:00.000Z'
+        createdAt: '2026-02-15T12:00:00.000Z',
+        language: 'ca'
       });
 
       await useCase.execute(input);
@@ -199,7 +203,8 @@ describe('CreateUserUseCase', () => {
         username: 'duplicate',
         email: 'other@example.com',
         passwordHash: 'hash',
-        createdAt: '2026-01-01T00:00:00.000Z'
+        createdAt: '2026-01-01T00:00:00.000Z',
+        language: 'ca'
       });
 
       await expect(useCase.execute(input)).rejects.toThrow(DomainError);
@@ -218,7 +223,8 @@ describe('CreateUserUseCase', () => {
         username: 'existing',
         email: 'old@example.com',
         passwordHash: 'hash',
-        createdAt: '2026-01-01T00:00:00.000Z'
+        createdAt: '2026-01-01T00:00:00.000Z',
+        language: 'ca'
       });
 
       try {
@@ -242,7 +248,8 @@ describe('CreateUserUseCase', () => {
         username: 'otheruser',
         email: 'duplicate@example.com',
         passwordHash: 'hash',
-        createdAt: '2026-01-01T00:00:00.000Z'
+        createdAt: '2026-01-01T00:00:00.000Z',
+        language: 'ca'
       });
 
       await expect(useCase.execute(input)).rejects.toThrow(DomainError);
@@ -262,7 +269,8 @@ describe('CreateUserUseCase', () => {
         username: 'another',
         email: 'taken@example.com',
         passwordHash: 'hash',
-        createdAt: '2026-01-01T00:00:00.000Z'
+        createdAt: '2026-01-01T00:00:00.000Z',
+        language: 'ca'
       });
 
       try {
@@ -285,7 +293,8 @@ describe('CreateUserUseCase', () => {
         username: 'taken',
         email: 'different@example.com',
         passwordHash: 'hash',
-        createdAt: '2026-01-01T00:00:00.000Z'
+        createdAt: '2026-01-01T00:00:00.000Z',
+        language: 'ca'
       });
 
       await expect(useCase.execute(input)).rejects.toThrow('Username already exists');

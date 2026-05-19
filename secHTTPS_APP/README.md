@@ -23,6 +23,7 @@ certificados SSL/TLS instalados en servidores. Forma parte del monorepo `secHTTP
 11. [Scripts disponibles](#11-scripts-disponibles)
 12. [Tests](#12-tests)
 13. [Documentación técnica](#13-documentación-técnica)
+14. [Trabajo pendiente](#14-trabajo-pendiente)
 
 ---
 
@@ -861,3 +862,33 @@ rápida (~1 s) y sin dependencias externas. Ver [`docs/002_Testing.md`](docs/002
 | [`docs/openapi.yaml`](docs/openapi.yaml) | Especificación OpenAPI 3.0 (endpoints REST + esquemas) |
 | [`docs/TESTING_E2E.md`](docs/TESTING_E2E.md) | Guía de tests Playwright E2E |
 | [`adr/`](adr/) | Registro de Decisiones de Arquitectura (ADR) |
+
+---
+
+## 14. Trabajo pendiente
+
+### Propagación del claim `lang` desde el JWT (auth_APP ADR-001)
+
+`auth_APP` añadió el campo `language` al usuario y el claim `lang` al payload JWT
+(access + refresh token) como parte del ADR-001. `secHTTPS_APP` aún no lo consume.
+
+**Archivos a modificar:**
+
+| Archivo | Cambio |
+|---|---|
+| `src/infrastructure/trpc/trpc.ts` | Añadir `lang?: string` a `TRPCContext` |
+| `src/app.ts` | Extraer `decoded.lang` en `createContext` y pasarlo al contexto |
+| `src/infrastructure/middleware/authMiddleware.ts` | Añadir `lang?: string` a `AuthenticatedRequest` y extraer `decoded.lang` |
+| `src/infrastructure/trpc/routers/certificateRouter.ts` | Devolver `lang` en `getCurrentUser` |
+| `client/src/hooks/useAuth.ts` | Añadir `lang: string` a `UserData` y leerlo de `getCurrentUser` |
+
+**Objetivo:** que el frontend tenga el idioma preferido del usuario disponible en el hook
+`useAuth()` nada más iniciar sesión, sin necesidad de llamadas adicionales a `auth_APP`.
+
+**Notas:**
+- El claim se llama `lang` en el JWT (no `language`).
+- Valores posibles: `'ca'` (catalán, por defecto) y `'es'` (castellano).
+- El usuario puede cambiar su idioma llamando a `PATCH /auth/users/:id/language` en
+  `auth_APP`, que re-emite cookies con el nuevo `lang`. Tras esa llamada, el frontend
+  debe refrescar el estado de `useAuth` (p.ej. volviendo a llamar `getCurrentUser`).
+

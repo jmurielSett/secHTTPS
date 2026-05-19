@@ -50,7 +50,8 @@ export class RefreshTokenUseCase {
         payload.applicationName,
         roles,
         undefined,
-        payload.authProvider
+        payload.authProvider,
+        user.language
       );
     }
     // 4. Multi-app token refresh
@@ -69,7 +70,8 @@ export class RefreshTokenUseCase {
         undefined,
         undefined,
         applications,
-        payload.authProvider
+        payload.authProvider,
+        user.language
       );
     }
 

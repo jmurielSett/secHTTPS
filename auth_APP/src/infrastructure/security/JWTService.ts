@@ -41,6 +41,7 @@ export class JWTService implements ITokenService {
    * @param roles - Optional: roles for single app
    * @param applications - Optional: all apps with roles for multi-app token
    * @param authProvider - Optional: authentication provider used (DATABASE, ldap://..., etc.)
+   * @param language - Optional: user preferred language ('ca' | 'es'), defaults to 'ca'
    * @returns Token pair (access + refresh)
    */
   generateTokenPair(
@@ -49,13 +50,14 @@ export class JWTService implements ITokenService {
     applicationName?: string,
     roles?: string[],
     applications?: ApplicationRole[],
-    authProvider?: string
+    authProvider?: string,
+    language?: string
   ): TokenPair {
     const accessToken = this.generateAccessToken(
-      userId, username, applicationName, roles, applications, authProvider
+      userId, username, applicationName, roles, applications, authProvider, language
     );
     const refreshToken = this.generateRefreshToken(
-      userId, username, applicationName, roles, applications, authProvider
+      userId, username, applicationName, roles, applications, authProvider, language
     );
 
     return { accessToken, refreshToken };
@@ -70,11 +72,13 @@ export class JWTService implements ITokenService {
     applicationName?: string,
     roles?: string[],
     applications?: ApplicationRole[],
-    authProvider?: string
+    authProvider?: string,
+    language?: string
   ): string {
     const payload: Omit<TokenPayload, 'iat' | 'exp'> = {
       userId,
       username,
+      lang: language ?? 'ca',
       type: 'access'
     };
 
@@ -112,11 +116,13 @@ export class JWTService implements ITokenService {
     applicationName?: string,
     roles?: string[],
     applications?: ApplicationRole[],
-    authProvider?: string
+    authProvider?: string,
+    language?: string
   ): string {
     const payload: Omit<TokenPayload, 'iat' | 'exp'> = {
       userId,
       username,
+      lang: language ?? 'ca',
       type: 'refresh'
     };
 

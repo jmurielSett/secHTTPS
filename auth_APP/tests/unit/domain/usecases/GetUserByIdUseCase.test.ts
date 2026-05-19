@@ -32,7 +32,8 @@ describe('GetUserByIdUseCase', () => {
         username: 'testuser',
         email: 'test@example.com',
         passwordHash: 'super_secret_hash',
-        createdAt: '2026-02-15T10:00:00.000Z'
+        createdAt: '2026-02-15T10:00:00.000Z',
+        language: 'ca'
       };
 
       vi.mocked(mockUserRepository.findById).mockResolvedValue(userWithHash);
@@ -44,7 +45,8 @@ describe('GetUserByIdUseCase', () => {
         username: 'testuser',
         email: 'test@example.com',
         passwordHash: undefined,
-        createdAt: '2026-02-15T10:00:00.000Z'
+        createdAt: '2026-02-15T10:00:00.000Z',
+        language: 'ca'
       });
       expect(result.passwordHash).toBeUndefined();
     });
@@ -55,7 +57,8 @@ describe('GetUserByIdUseCase', () => {
         username: 'user10',
         email: 'user10@example.com',
         passwordHash: 'hash',
-        createdAt: '2026-01-01T00:00:00.000Z'
+        createdAt: '2026-01-01T00:00:00.000Z',
+        language: 'ca'
       };
 
       vi.mocked(mockUserRepository.findById).mockResolvedValue(user);
@@ -72,7 +75,8 @@ describe('GetUserByIdUseCase', () => {
         username: 'admin',
         email: 'admin@example.com',
         passwordHash: 'hidden_hash',
-        createdAt: '2026-02-10T15:30:00.000Z'
+        createdAt: '2026-02-10T15:30:00.000Z',
+        language: 'ca'
       };
 
       vi.mocked(mockUserRepository.findById).mockResolvedValue(user);
@@ -93,7 +97,8 @@ describe('GetUserByIdUseCase', () => {
         username: 'numericuser',
         email: 'numeric@example.com',
         passwordHash: 'hash123',
-        createdAt: '2026-01-15T00:00:00.000Z'
+        createdAt: '2026-01-15T00:00:00.000Z',
+        language: 'ca'
       };
 
       vi.mocked(mockUserRepository.findById).mockResolvedValue(user);
@@ -146,7 +151,8 @@ describe('GetUserByIdUseCase', () => {
         username: 'uuiduser',
         email: 'uuid@example.com',
         passwordHash: 'hash',
-        createdAt: '2026-01-01T00:00:00.000Z'
+        createdAt: '2026-01-01T00:00:00.000Z',
+        language: 'ca'
       };
 
       vi.mocked(mockUserRepository.findById).mockResolvedValue(user);
@@ -163,7 +169,8 @@ describe('GetUserByIdUseCase', () => {
         username: 'firstuser',
         email: 'first@example.com',
         passwordHash: 'hash1',
-        createdAt: '2026-01-01T00:00:00.000Z'
+        createdAt: '2026-01-01T00:00:00.000Z',
+        language: 'ca'
       };
 
       vi.mocked(mockUserRepository.findById).mockResolvedValue(user);

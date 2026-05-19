@@ -10,6 +10,7 @@ export { LoginUseCase } from './LoginUseCase';
 export { RefreshTokenUseCase } from './RefreshTokenUseCase';
 export { RegisterUserUseCase } from './RegisterUserUseCase';
 export { AssignRoleUseCase, RevokeRoleUseCase } from './RoleManagementUseCases';
+export { UpdateLanguageUseCase } from './UpdateLanguageUseCase';
 export { UpdateUserUseCase } from './UpdateUserUseCase';
 export { ValidateTokenUseCase } from './ValidateTokenUseCase';
 export { VerifyUserAccessUseCase } from './VerifyUserAccessUseCase';

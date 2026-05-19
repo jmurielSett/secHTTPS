@@ -36,8 +36,9 @@ export class InMemoryUserRepository implements IUserRepository {
       throw new Error(`User with id ${user.id} already exists`);
     }
 
-    this.users.set(userId, { ...user });
-    return { ...user };
+    const userToStore: User = { ...user, language: user.language ?? 'ca' };
+    this.users.set(userId, userToStore);
+    return { ...userToStore };
   }
 
   async update(user: User): Promise<User> {

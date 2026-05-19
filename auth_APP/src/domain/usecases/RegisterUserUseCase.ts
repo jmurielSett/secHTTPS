@@ -47,6 +47,7 @@ export class RegisterUserUseCase {
       username: username.getValue(),
       email: email.getValue(),
       passwordHash,
+      language: 'ca',
       createdAt: new Date().toISOString()
     };
 
@@ -58,6 +59,7 @@ export class RegisterUserUseCase {
       id: createdUser.id,
       username: createdUser.username,
       email: createdUser.email,
+      language: createdUser.language,
       passwordHash: undefined as any,
       createdAt: createdUser.createdAt
     };

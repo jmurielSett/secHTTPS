@@ -9,6 +9,7 @@ export interface User {
   passwordHash: string;
   role?: UserRole; // Optional: legacy field, not stored in DB (use user_application_roles instead)
   authProvider?: string; // Authentication provider used (DATABASE, ldap://..., etc.)
+  language: string; // User preferred language: 'ca' (Catalan, default) | 'es' (Spanish)
   createdAt: string;
 }
 
@@ -28,6 +29,7 @@ export interface CreateUserDTO {
   email: string;
   password: string;
   role?: UserRole;
+  language?: string; // Optional: defaults to 'ca' if not provided
 }
 
 /**
@@ -61,6 +63,7 @@ export interface ApplicationRole {
 export interface TokenPayload {
   userId: string;
   username: string;
+  lang: string; // User preferred language: 'ca' | 'es'
   authProvider?: string; // Authentication provider used (DATABASE, ldap://..., etc.)
   applicationName?: string; // Single app (if specified in login)
   roles?: string[]; // Roles for single app

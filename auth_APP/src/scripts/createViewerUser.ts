@@ -19,6 +19,7 @@ interface ViewerUserConfig {
   password: string;
   applicationName: string;
   roleName: string;
+  language?: string;
 }
 
 async function createViewerUser(config: ViewerUserConfig): Promise<void> {
@@ -63,8 +64,8 @@ async function createViewerUser(config: ViewerUserConfig): Promise<void> {
     // Create user
     console.log(`👤 Creating user '${config.username}'...`);
     const userResult = await pool.query(
-      "INSERT INTO users (username, email, password_hash, auth_provider) VALUES ($1, $2, $3, 'DATABASE') RETURNING id, username",
-      [config.username, config.email, passwordHash]
+      "INSERT INTO users (username, email, password_hash, auth_provider, language) VALUES ($1, $2, $3, 'DATABASE', $4) RETURNING id, username",
+      [config.username, config.email, passwordHash, config.language ?? 'ca']
     );
 
     const userId = userResult.rows[0].id;
@@ -157,7 +158,8 @@ const viewerConfig: ViewerUserConfig = {
   email: 'viewer@sechttps.local',
   password: 'Viewer123', // Must meet password policy: uppercase, lowercase, number
   applicationName: 'secHTTPS_APP',
-  roleName: 'viewer' // Read-only role
+  roleName: 'viewer', // Read-only role
+  language: 'ca'
 };
 
 // Execute script

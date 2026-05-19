@@ -47,6 +47,7 @@ export class CreateUserUseCase {
       username: username.getValue(),
       email: email.getValue(),
       passwordHash,
+      language: 'ca',
       createdAt: new Date().toISOString()
     };
 

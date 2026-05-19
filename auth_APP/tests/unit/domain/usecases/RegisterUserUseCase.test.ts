@@ -47,7 +47,8 @@ describe('RegisterUserUseCase', () => {
         username: 'newuser',
         email: 'newuser@example.com',
         passwordHash: hashedPassword,
-        createdAt: '2026-02-15T10:00:00.000Z'
+        createdAt: '2026-02-15T10:00:00.000Z',
+        language: 'ca'
       };
 
       vi.mocked(mockUserRepository.findByUsername).mockResolvedValue(null);
@@ -62,7 +63,8 @@ describe('RegisterUserUseCase', () => {
         username: 'newuser',
         email: 'newuser@example.com',
         passwordHash: undefined,
-        createdAt: '2026-02-15T10:00:00.000Z'
+        createdAt: '2026-02-15T10:00:00.000Z',
+        language: 'ca'
       });
       expect(mockUserRepository.findByUsername).toHaveBeenCalledWith('newuser');
       expect(mockUserRepository.findByEmail).toHaveBeenCalledWith('newuser@example.com');
@@ -91,7 +93,8 @@ describe('RegisterUserUseCase', () => {
         username: 'testuser',
         email: 'test@example.com',
         passwordHash: 'hashed_password',
-        createdAt: '2026-02-15T10:00:00.000Z'
+        createdAt: '2026-02-15T10:00:00.000Z',
+        language: 'ca'
       });
 
       await useCase.execute(input);
@@ -119,7 +122,8 @@ describe('RegisterUserUseCase', () => {
         username: 'user',
         email: 'user@example.com',
         passwordHash: 'hashed',
-        createdAt: '2026-02-15T10:00:00.000Z'
+        createdAt: '2026-02-15T10:00:00.000Z',
+        language: 'ca'
       });
 
       const result = await useCase.execute(input);
@@ -173,7 +177,8 @@ describe('RegisterUserUseCase', () => {
         username: 'existinguser',
         email: 'existing@example.com',
         passwordHash: 'hash',
-        createdAt: '2026-02-15T10:00:00.000Z'
+        createdAt: '2026-02-15T10:00:00.000Z',
+        language: 'ca'
       };
 
       vi.mocked(mockUserRepository.findByUsername).mockResolvedValue(existingUser);
@@ -194,7 +199,8 @@ describe('RegisterUserUseCase', () => {
         username: 'anotheruser',
         email: 'existing@example.com',
         passwordHash: 'hash',
-        createdAt: '2026-02-15T10:00:00.000Z'
+        createdAt: '2026-02-15T10:00:00.000Z',
+        language: 'ca'
       };
 
       vi.mocked(mockUserRepository.findByUsername).mockResolvedValue(null);
@@ -216,7 +222,8 @@ describe('RegisterUserUseCase', () => {
         username: 'existinguser',
         email: 'other@example.com',
         passwordHash: 'hash',
-        createdAt: '2026-02-15T10:00:00.000Z'
+        createdAt: '2026-02-15T10:00:00.000Z',
+        language: 'ca'
       });
 
       await expect(useCase.execute(input)).rejects.toThrow('Username already exists');

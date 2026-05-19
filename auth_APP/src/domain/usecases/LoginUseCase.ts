@@ -211,7 +211,8 @@ export class LoginUseCase {
       applicationName,
       roles,
       undefined,
-      authProviderValue
+      authProviderValue,
+      user.language
     );
   }
 
@@ -236,7 +237,8 @@ export class LoginUseCase {
       undefined,
       undefined,
       applications,
-      authProviderValue
+      authProviderValue,
+      user.language
     );
   }
 

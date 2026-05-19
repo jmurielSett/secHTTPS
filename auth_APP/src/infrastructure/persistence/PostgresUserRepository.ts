@@ -44,12 +44,12 @@ export class PostgresUserRepository implements IUserRepository {
 
   async create(user: User): Promise<User> {
     const query = `
-      INSERT INTO users (username, email, password_hash, auth_provider, created_at)
-      VALUES ($1, $2, $3, $4, $5)
+      INSERT INTO users (username, email, password_hash, auth_provider, language, created_at)
+      VALUES ($1, $2, $3, $4, $5, $6)
       RETURNING *
     `;
 
-    const values = [user.username, user.email, user.passwordHash, user.authProvider ?? null, user.createdAt];
+    const values = [user.username, user.email, user.passwordHash, user.authProvider ?? null, user.language ?? 'ca', user.createdAt];
 
     const result = await this.pool.query(query, values);
     return this.mapRowToUser(result.rows[0]);
@@ -58,12 +58,12 @@ export class PostgresUserRepository implements IUserRepository {
   async update(user: User): Promise<User> {
     const query = `
       UPDATE users
-      SET username = $2, email = $3, password_hash = $4
+      SET username = $2, email = $3, password_hash = $4, language = $5
       WHERE id = $1
       RETURNING *
     `;
 
-    const values = [user.id, user.username, user.email, user.passwordHash];
+    const values = [user.id, user.username, user.email, user.passwordHash, user.language ?? 'ca'];
 
     const result = await this.pool.query(query, values);
 
@@ -149,6 +149,7 @@ export class PostgresUserRepository implements IUserRepository {
       email: row.email,
       passwordHash: row.password_hash,
       authProvider: row.auth_provider ?? undefined,
+      language: row.language ?? 'ca',
       createdAt: row.created_at.toISOString()
     };
   }

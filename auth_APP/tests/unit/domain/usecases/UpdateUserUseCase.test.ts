@@ -15,7 +15,8 @@ describe('UpdateUserUseCase', () => {
     username: 'originaluser',
     email: 'original@example.com',
     passwordHash: 'original_hash',
-    createdAt: '2026-01-01T00:00:00.000Z'
+    createdAt: '2026-01-01T00:00:00.000Z',
+        language: 'ca'
   };
 
   beforeEach(() => {
@@ -210,7 +211,8 @@ describe('UpdateUserUseCase', () => {
         username: 'takenusername',
         email: 'other@example.com',
         passwordHash: 'hash',
-        createdAt: '2026-01-01T00:00:00.000Z'
+        createdAt: '2026-01-01T00:00:00.000Z',
+        language: 'ca'
       };
 
       vi.mocked(mockUserRepository.findById).mockResolvedValue(existingUser);
@@ -231,7 +233,8 @@ describe('UpdateUserUseCase', () => {
         username: 'otheruser',
         email: 'taken@example.com',
         passwordHash: 'hash',
-        createdAt: '2026-01-01T00:00:00.000Z'
+        createdAt: '2026-01-01T00:00:00.000Z',
+        language: 'ca'
       };
 
       vi.mocked(mockUserRepository.findById).mockResolvedValue(existingUser);
@@ -327,7 +330,8 @@ describe('UpdateUserUseCase', () => {
       expect(mockUserRepository.update).toHaveBeenCalledWith(
         expect.objectContaining({
           id: 5,
-          createdAt: '2026-01-01T00:00:00.000Z'
+          createdAt: '2026-01-01T00:00:00.000Z',
+        language: 'ca'
         })
       );
     });

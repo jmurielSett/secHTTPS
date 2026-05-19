@@ -3,6 +3,7 @@ import {
   LoginUseCase,
   RefreshTokenUseCase,
   RegisterUserUseCase,
+  UpdateLanguageUseCase,
   ValidateTokenUseCase
 } from '../../../domain/usecases';
 import { Password, Token, Username } from '../../../domain/value-objects';
@@ -13,7 +14,8 @@ export class AuthController {
     private readonly loginUseCase: LoginUseCase,
     private readonly refreshTokenUseCase: RefreshTokenUseCase,
     private readonly validateTokenUseCase: ValidateTokenUseCase,
-    private readonly registerUserUseCase: RegisterUserUseCase
+    private readonly registerUserUseCase: RegisterUserUseCase,
+    private readonly updateLanguageUseCase: UpdateLanguageUseCase
   ) {}
 
   /**
@@ -276,6 +278,72 @@ export class AuthController {
       res.status(200).json({
         success: true,
         message: 'Logged out successfully'
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
+   * PATCH /auth/users/:id/language
+   * Updates the user's preferred language and re-emits a fresh token pair.
+   * Authorization: own user or admin.
+   */
+  async updateLanguage(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const id = req.params['id'];
+      const { language } = req.body;
+      const requesterPayload = req.user;
+
+      if (!id || typeof id !== 'string') {
+        res.status(400).json({
+          error: { code: 'VALIDATION_ERROR', message: 'User ID is required' }
+        });
+        return;
+      }
+
+      if (!requesterPayload) {
+        res.status(401).json({
+          error: { code: 'UNAUTHORIZED', message: 'Authentication required' }
+        });
+        return;
+      }
+
+      if (!language || typeof language !== 'string') {
+        res.status(400).json({
+          error: { code: 'VALIDATION_ERROR', message: 'language field is required' }
+        });
+        return;
+      }
+
+      const result = await this.updateLanguageUseCase.execute({
+        targetUserId: id,
+        requesterPayload,
+        language
+      });
+
+      // Update httpOnly cookies with new tokens
+      res.cookie('accessToken', result.accessToken, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'strict',
+        maxAge: JWT_CONFIG.ACCESS_EXPIRATION_SECONDS * 1000,
+        path: '/'
+      });
+
+      res.cookie('refreshToken', result.refreshToken, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'strict',
+        maxAge: JWT_CONFIG.REFRESH_EXPIRATION_SECONDS * 1000,
+        path: '/'
+      });
+
+      res.status(200).json({
+        message: 'Idioma actualizado',
+        language: result.language,
+        accessToken: result.accessToken,
+        refreshToken: result.refreshToken
       });
     } catch (error) {
       next(error);
