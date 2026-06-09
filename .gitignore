@@ -46,7 +46,7 @@ Thumbs.db
 
 # no publicar docker
 Dockerfile
-docker-compose.yml
+docker-compose*.yml
 
 # Testing
 coverage/
